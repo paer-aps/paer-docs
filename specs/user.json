@@ -1,0 +1,3540 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Paer User API",
+        "description": "User, company, KYB, and API-key management for Paer.dk",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health",
+                "description": "Liveness + DB readiness. Fails closed on any DB error.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Health Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/companies": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create Company",
+                "description": "Create a customer-company shell. A or B can do this solo \u2014 the high-stakes\ndecision is the KYB review, not the shell creation.",
+                "operationId": "create_company_v1_admin_companies_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CompanyCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List Companies",
+                "description": "List companies (slim view: id, name, country, KYB headline fields only).\n\nDrill into a specific company via `GET /v1/admin/companies/{id}` for the\nfull record including UBO PII, signatories, addresses, etc. Splitting list\nvs detail keeps PII off the list path so a credential leak yields a\ncompany *headline* dump, not a full PII dump.",
+                "operationId": "list_companies_v1_admin_companies_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "kyb_status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Kyb Status"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CompanyListRow"
+                                    },
+                                    "title": "Response List Companies V1 Admin Companies Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/companies/{company_id}": {
+            "delete": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Delete Company",
+                "description": "Hard-delete a customer company + every row that references it.\n\nThe Postgres FKs were created without ON DELETE CASCADE (the model\ndeclares `ondelete=\"CASCADE\"` but the initial migration didn't carry\nit through). Until a migration adds the cascade, do the deletion\nexplicitly here in topological order.\n\nPlatform-admin only. Refuses to delete Paer-Internal.",
+                "operationId": "delete_company_v1_admin_companies__company_id__delete",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "company_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Company Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successful Response"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get Company",
+                "operationId": "get_company_v1_admin_companies__company_id__get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "company_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Company Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/companies/{company_id}/kyb-decisions": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Propose Kyb Decision",
+                "description": "Propose a KYB decision (verified / rejected / risk_tier_changed / requires_more_info).\n\nA-proposer: status='applied' immediately, single signature.\nB-proposer: status='pending_approval'; requires another A/B to POST `/approve`.",
+                "operationId": "propose_kyb_decision_v1_admin_companies__company_id__kyb_decisions_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "company_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Company Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KybDecisionPropose"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDecisionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List Kyb Decisions",
+                "description": "Full decision timeline (newest first), including withdrawn rows.",
+                "operationId": "list_kyb_decisions_v1_admin_companies__company_id__kyb_decisions_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "company_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Company Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/KybDecisionResponse"
+                                    },
+                                    "title": "Response List Kyb Decisions V1 Admin Companies  Company Id  Kyb Decisions Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/kyb-decisions/{decision_id}/approve": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Approve Kyb Decision",
+                "description": "Second-signature on a B-proposed pending decision. Flips status='applied'.",
+                "operationId": "approve_kyb_decision_v1_admin_kyb_decisions__decision_id__approve_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "decision_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Decision Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDecisionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/users": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Admin Create User",
+                "description": "Operator-driven user creation inside any customer company.\n\nSolves the chicken-and-egg of \"the customer's first A-user\" \u2014 without\nthis, every new customer requires a SQL insert by Fredrik to seed their\nfirst A-user. Now the operator hits this endpoint instead.\n\n`activate_immediately=True` (default) skips the IDV `pending \u2192 active`\ngate on the assumption that the operator has verified identity via\nout-of-band channels (call, email, registry document review). The\n`EVT_USER_CREATED` audit row records `activated_immediately=True` so the\ndecision is traceable.\n\nNB: This route is currently A-or-B SOLO (no quorum). Extending B-quorum\nto user provisioning is a known follow-up; today's quorum mechanism\nis scoped to KYB decisions only. Document and defer.",
+                "operationId": "admin_create_user_v1_admin_users_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminUserCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ]
+            }
+        },
+        "/v1/admin/kyb-decisions/{decision_id}/withdraw": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Withdraw Kyb Decision",
+                "description": "Proposer (or platform admin) cancels a pending decision.",
+                "operationId": "withdraw_kyb_decision_v1_admin_kyb_decisions__decision_id__withdraw_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "decision_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Decision Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KybDecisionWithdraw"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDecisionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/signup": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Signup",
+                "operationId": "signup_v1_auth_signup_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignupRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignupResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/verify-email": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify Email",
+                "operationId": "verify_email_v1_auth_verify_email_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyEmailRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/login": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login",
+                "operationId": "login_v1_auth_login_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginChallengeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/login/mfa": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login Mfa",
+                "description": "Step 2 for users with already-enrolled MFA. Verifies one of the\nprovided proofs and exchanges the challenge for a session cookie.",
+                "operationId": "login_mfa_v1_auth_login_mfa_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MfaLoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MfaSessionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/totp/init": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Mfa Totp Init",
+                "description": "Create a pending TOTP factor + return QR. Caller follows up with /enroll\nonce the user has scanned the QR and submitted the first code.",
+                "operationId": "mfa_totp_init_v1_auth_mfa_totp_init_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TotpInitRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TotpInitResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/totp/enroll": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Mfa Totp Enroll",
+                "description": "Validate the first TOTP code \u2192 confirm factor \u2192 if first MFA factor,\ngenerate backup codes + return them ONCE \u2192 issue session cookie.",
+                "operationId": "mfa_totp_enroll_v1_auth_mfa_totp_enroll_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TotpEnrollRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MfaSessionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/passkey/init": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Mfa Passkey Init Registration",
+                "description": "Returns WebAuthn PublicKeyCredentialCreationOptions for the browser's\nnavigator.credentials.create() call. The returned `challenge_token`\nmust be passed back in /enroll along with the credential.",
+                "operationId": "mfa_passkey_init_registration_v1_auth_mfa_passkey_init_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasskeyInitRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasskeyInitResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/passkey/enroll": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Mfa Passkey Enroll",
+                "description": "body.challenge_token MUST be a WebAuthn challenge from /passkey/init.\nVerifies the credential, persists the factor, issues session cookie.",
+                "operationId": "mfa_passkey_enroll_v1_auth_mfa_passkey_enroll_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasskeyEnrollRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MfaSessionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/passkey/login-init": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Mfa Passkey Init Authentication",
+                "description": "Returns WebAuthn AuthenticationOptions for an existing-passkey login.\nAfter the browser signs the assertion, POST it to /v1/auth/login/mfa\nwith passkey_response + passkey_challenge_token=this challenge.",
+                "operationId": "mfa_passkey_init_authentication_v1_auth_mfa_passkey_login_init_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasskeyInitRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasskeyInitResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/me": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Me",
+                "operationId": "me_v1_auth_me_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/factors": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "List Factors",
+                "operationId": "list_factors_v1_auth_mfa_factors_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/FactorResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Factors V1 Auth Mfa Factors Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/factors/{factor_id}": {
+            "delete": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Revoke Factor",
+                "operationId": "revoke_factor_v1_auth_mfa_factors__factor_id__delete",
+                "parameters": [
+                    {
+                        "name": "factor_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Factor Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FactorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/mfa/backup-codes/regenerate": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Regenerate Backup Codes",
+                "description": "Returns a fresh batch of 10 backup codes, supersedes the previous batch.\nReturned ONCE \u2014 caller must surface them immediately.",
+                "operationId": "regenerate_backup_codes_v1_auth_mfa_backup_codes_regenerate_post",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Regenerate Backup Codes V1 Auth Mfa Backup Codes Regenerate Post"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/logout": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout",
+                "operationId": "logout_v1_auth_logout_post",
+                "responses": {
+                    "204": {
+                        "description": "Successful Response"
+                    }
+                }
+            }
+        },
+        "/v1/auth/sessions/validate": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Validate Session",
+                "description": "Resolve a session token \u2192 user info or `valid=false`. 200 in both\ncases so callers can briefly cache negatives. Touches the session\n(slides expiry) on success, mirroring the cookie path.",
+                "operationId": "validate_session_v1_auth_sessions_validate_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SessionValidateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionValidateResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/auth/sessions/revoke": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Revoke Session Endpoint",
+                "description": "Revoke a session by plaintext token. Idempotent \u2014 unknown / already\nrevoked tokens still return `revoked=true` so paer-app's logout button\nis a one-click no-replay action.",
+                "operationId": "revoke_session_endpoint_v1_auth_sessions_revoke_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SessionRevokeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionRevokeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/auth/password-reset/request": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Password Reset Request",
+                "operationId": "password_reset_request_v1_auth_password_reset_request_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/password-reset/confirm": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Password Reset Confirm",
+                "operationId": "password_reset_confirm_v1_auth_password_reset_confirm_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetConfirm"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users": {
+            "get": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "List Users",
+                "operationId": "list_users_v1_users_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/UserResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Users V1 Users Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Create User",
+                "operationId": "create_user_v1_users_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ]
+            }
+        },
+        "/v1/users/{user_id}": {
+            "patch": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update User",
+                "operationId": "update_user_v1_users__user_id__patch",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "User Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserUpdate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/api-keys": {
+            "get": {
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "List Own Keys",
+                "operationId": "list_own_keys_v1_api_keys_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ApiKeyInfo"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Own Keys V1 Api Keys Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "Mint Key",
+                "description": "Mint a new key for the calling user. Role inherits from the user (A/B/C).\n\nNote: a C-user calling this gets 403 from the service layer. They can\nauthenticate (since they hold a C-key) but can't bootstrap a higher tier.",
+                "operationId": "mint_key_v1_api_keys_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApiKeyCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiKeyCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/api-keys/{key_id}": {
+            "delete": {
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "Revoke Own Key",
+                "operationId": "revoke_own_key_v1_api_keys__key_id__delete",
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "key_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Key Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiKeyInfo"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/keys/introspect": {
+            "post": {
+                "tags": [
+                    "inter-service"
+                ],
+                "summary": "Introspect",
+                "operationId": "introspect_v1_keys_introspect_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/IntrospectRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IntrospectResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Root  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AdminUserCreate": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Email"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "role": {
+                        "type": "string",
+                        "pattern": "^[ABC]$",
+                        "title": "Role",
+                        "default": "C"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "maxLength": 36,
+                        "minLength": 36,
+                        "title": "Company Id"
+                    },
+                    "activate_immediately": {
+                        "type": "boolean",
+                        "title": "Activate Immediately",
+                        "default": true
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "name",
+                    "company_id"
+                ],
+                "title": "AdminUserCreate",
+                "description": "Body for `POST /v1/admin/users` \u2014 Paer-Internal operator-driven user\nprovisioning. Adds `company_id` (required \u2014 operator picks which customer\nto provision into) and `activate_immediately` (default True \u2014 bypasses the\npending IDV gate for the chicken-and-egg first-A-user case)."
+            },
+            "ApiKeyCreate": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    }
+                },
+                "type": "object",
+                "title": "ApiKeyCreate",
+                "description": "End-user mints a key for themselves. Role is inherited from the user."
+            },
+            "ApiKeyCreated": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "role": {
+                        "type": "string",
+                        "title": "Role"
+                    },
+                    "key": {
+                        "type": "string",
+                        "title": "Key"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "user_id",
+                    "company_id",
+                    "name",
+                    "role",
+                    "key",
+                    "created_at"
+                ],
+                "title": "ApiKeyCreated",
+                "description": "Returned ONCE on creation. Contains the plaintext key \u2014 never re-sendable."
+            },
+            "ApiKeyInfo": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "role": {
+                        "type": "string",
+                        "title": "Role"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "revoked_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Revoked At"
+                    },
+                    "last_used_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Used At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "user_id",
+                    "company_id",
+                    "name",
+                    "role",
+                    "created_at",
+                    "revoked_at",
+                    "last_used_at"
+                ],
+                "title": "ApiKeyInfo",
+                "description": "Public representation \u2014 never includes the plaintext."
+            },
+            "CompanyCreate": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Za-z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name"
+                ],
+                "title": "CompanyCreate",
+                "description": "Body for `POST /v1/admin/companies` \u2014 operators create a shell, the\nLovable onboarding flow (or future direct API consumers) fills KYB later.",
+                "examples": [
+                    {
+                        "country_of_formation": "DK",
+                        "name": "Acme A/S"
+                    }
+                ]
+            },
+            "CompanyListRow": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "kyb_status": {
+                        "type": "string",
+                        "title": "Kyb Status"
+                    },
+                    "kyb_risk_tier": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Risk Tier"
+                    },
+                    "kyb_expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Expires At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "country",
+                    "country_of_formation",
+                    "kyb_status",
+                    "kyb_risk_tier",
+                    "kyb_expires_at",
+                    "created_at"
+                ],
+                "title": "CompanyListRow",
+                "description": "Slim shape for `GET /v1/admin/companies` list view.\n\nExcludes UBOs, signatories, addresses, contact details \u2014 anything that\nrepresents PII or extended KYB metadata. Drill into a specific company id\nvia `GET /v1/admin/companies/{id}` to get the full `CompanyResponse`.\n\nReduces blast radius if an admin key is exfiltrated: a list call returns\nonly the headline fields (no PII dump per request)."
+            },
+            "CompanyResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "business_email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Business Email"
+                    },
+                    "address_line1": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "settlement_currency": {
+                        "type": "string",
+                        "title": "Settlement Currency"
+                    },
+                    "monthly_volume": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Monthly Volume"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "kyb_status": {
+                        "type": "string",
+                        "title": "Kyb Status"
+                    },
+                    "kyb_method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Method"
+                    },
+                    "kyb_provider": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Provider"
+                    },
+                    "kyb_verified_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Verified At"
+                    },
+                    "kyb_expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Expires At"
+                    },
+                    "kyb_risk_tier": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Risk Tier"
+                    },
+                    "kyb_rejection_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Rejection Reason"
+                    },
+                    "ubos": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Ubos"
+                    },
+                    "signatories": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Signatories"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "trade_name",
+                    "entity_type",
+                    "industry_type",
+                    "national_id_number",
+                    "country_of_formation",
+                    "date_of_formation",
+                    "website",
+                    "phone",
+                    "business_email",
+                    "address_line1",
+                    "address_line2",
+                    "city",
+                    "district",
+                    "postal_code",
+                    "country",
+                    "settlement_currency",
+                    "monthly_volume",
+                    "source_of_funds",
+                    "kyb_status",
+                    "kyb_method",
+                    "kyb_provider",
+                    "kyb_verified_at",
+                    "kyb_expires_at",
+                    "kyb_risk_tier",
+                    "kyb_rejection_reason",
+                    "ubos",
+                    "signatories",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "CompanyResponse"
+            },
+            "DecisionSignatureResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "signer_user_id": {
+                        "type": "string",
+                        "title": "Signer User Id"
+                    },
+                    "signer_role_at_sign": {
+                        "type": "string",
+                        "title": "Signer Role At Sign"
+                    },
+                    "signed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Signed At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "signer_user_id",
+                    "signer_role_at_sign",
+                    "signed_at"
+                ],
+                "title": "DecisionSignatureResponse"
+            },
+            "FactorResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "title": "Kind"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "last_used_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Used At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "name",
+                    "created_at",
+                    "last_used_at"
+                ],
+                "title": "FactorResponse"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "IntrospectRequest": {
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Key"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "key"
+                ],
+                "title": "IntrospectRequest",
+                "description": "Body for `POST /v1/keys/introspect` \u2014 called by paer-quotes-api / paer-beneficiary-api."
+            },
+            "IntrospectResponse": {
+                "properties": {
+                    "active": {
+                        "type": "boolean",
+                        "title": "Active"
+                    },
+                    "key_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Key Id"
+                    },
+                    "user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company Id"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "revoked_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Revoked At"
+                    },
+                    "company_kyb_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company Kyb Status"
+                    },
+                    "user_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "User Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "active"
+                ],
+                "title": "IntrospectResponse",
+                "description": "Metadata bundle returned to the calling service. Cached for 30s on their side."
+            },
+            "KybDecisionPropose": {
+                "properties": {
+                    "decision": {
+                        "type": "string",
+                        "pattern": "^(verified|rejected|risk_tier_changed|requires_more_info)$",
+                        "title": "Decision"
+                    },
+                    "risk_tier": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^(low|medium|high)$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Risk Tier"
+                    },
+                    "method": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Method"
+                    },
+                    "rejection_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Rejection Reason"
+                    },
+                    "basis": {
+                        "type": "string",
+                        "maxLength": 4000,
+                        "minLength": 20,
+                        "title": "Basis"
+                    },
+                    "provider": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider"
+                    },
+                    "provider_ref": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider Ref"
+                    },
+                    "document_refs": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Document Refs"
+                    },
+                    "screening_results": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Screening Results"
+                    },
+                    "supersedes_id": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 36
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Supersedes Id"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "decision",
+                    "basis"
+                ],
+                "title": "KybDecisionPropose",
+                "description": "Body for `POST /v1/admin/companies/{id}/kyb-decisions` \u2014 proposes a new decision.\n\n`basis` is required for ALL decision types \u2014 including risk-tier-only changes.\nPer user requirement: any change to a customer's status (denied/accepted)\nOR risk rating must be accompanied by a description from the 1st-line analyst.",
+                "examples": [
+                    {
+                        "basis": "Articles of incorporation reviewed; CVR registry confirms entity; sanctions screening clear; UBOs identified at >25%.",
+                        "decision": "verified",
+                        "method": "Registry extract",
+                        "risk_tier": "low"
+                    }
+                ]
+            },
+            "KybDecisionResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "decision": {
+                        "type": "string",
+                        "title": "Decision"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "risk_tier": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Risk Tier"
+                    },
+                    "method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Method"
+                    },
+                    "rejection_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Rejection Reason"
+                    },
+                    "basis": {
+                        "type": "string",
+                        "title": "Basis"
+                    },
+                    "proposer_user_id": {
+                        "type": "string",
+                        "title": "Proposer User Id"
+                    },
+                    "provider": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider"
+                    },
+                    "provider_ref": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider Ref"
+                    },
+                    "document_refs": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Document Refs"
+                    },
+                    "screening_results": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Screening Results"
+                    },
+                    "supersedes_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Supersedes Id"
+                    },
+                    "applied_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Applied At"
+                    },
+                    "withdrawn_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Withdrawn At"
+                    },
+                    "withdrawn_by_user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Withdrawn By User Id"
+                    },
+                    "signatures": {
+                        "items": {
+                            "$ref": "#/components/schemas/DecisionSignatureResponse"
+                        },
+                        "type": "array",
+                        "title": "Signatures",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "company_id",
+                    "created_at",
+                    "decision",
+                    "status",
+                    "risk_tier",
+                    "method",
+                    "rejection_reason",
+                    "basis",
+                    "proposer_user_id",
+                    "provider",
+                    "provider_ref",
+                    "document_refs",
+                    "screening_results",
+                    "supersedes_id",
+                    "applied_at",
+                    "withdrawn_at",
+                    "withdrawn_by_user_id"
+                ],
+                "title": "KybDecisionResponse"
+            },
+            "KybDecisionWithdraw": {
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "minLength": 5,
+                        "title": "Reason"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "reason"
+                ],
+                "title": "KybDecisionWithdraw",
+                "description": "Body for `POST /v1/admin/kyb-decisions/{id}/withdraw` \u2014 proposer cancels their own pending decision."
+            },
+            "LoginChallengeResponse": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "title": "Challenge Token"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Expires At"
+                    },
+                    "available_factors": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Available Factors"
+                    },
+                    "requires_enrollment": {
+                        "type": "boolean",
+                        "title": "Requires Enrollment"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token",
+                    "expires_at",
+                    "available_factors",
+                    "requires_enrollment"
+                ],
+                "title": "LoginChallengeResponse",
+                "description": "Returned when login step 1 succeeds (password OK + email verified).\n\n`requires_enrollment=True` means the user has zero confirmed MFA factors;\nthe next call should be /v1/auth/mfa/totp/init or /v1/auth/mfa/passkey/init\nusing this challenge. Once a factor is enrolled, the same challenge can\nbe exchanged for a session.\n\n`requires_enrollment=False` + non-empty `available_factors` means existing\nuser with MFA \u2014 call /v1/auth/login/mfa with a proof of one factor."
+            },
+            "LoginRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Password"
+                    },
+                    "company_id": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 36
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company Id",
+                        "description": "Optional. Required only when the email exists in multiple companies; otherwise the unique match is used. Most pilot users will leave this blank \u2014 they're in exactly one company."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "MfaLoginRequest": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Challenge Token"
+                    },
+                    "totp_code": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 6,
+                                "minLength": 6,
+                                "pattern": "^\\d{6}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Totp Code"
+                    },
+                    "backup_code": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32,
+                                "minLength": 8
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Backup Code"
+                    },
+                    "passkey_response": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Passkey Response"
+                    },
+                    "passkey_challenge_token": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Passkey Challenge Token",
+                        "description": "The challenge token returned from /v1/auth/mfa/passkey/init. Required when passkey_response is provided."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token"
+                ],
+                "title": "MfaLoginRequest",
+                "description": "Body for POST /v1/auth/login/mfa. Provide exactly ONE of the three proofs."
+            },
+            "MfaSessionResponse": {
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "role": {
+                        "type": "string",
+                        "title": "Role"
+                    },
+                    "session_token": {
+                        "type": "string",
+                        "title": "Session Token"
+                    },
+                    "session_expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Session Expires At"
+                    },
+                    "backup_codes": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Backup Codes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "user_id",
+                    "company_id",
+                    "role",
+                    "session_token",
+                    "session_expires_at"
+                ],
+                "title": "MfaSessionResponse",
+                "description": "Returned when login OR enrollment completes successfully. Contains user\ninfo + (on first enrollment) the one-shot backup codes the user MUST save.\n\nAlso carries the plaintext session token so server-side callers (paer-app)\ncan set their own cookie on the right domain (app.paer.dk) without parsing\nSet-Cookie. Browsers calling user-api directly can ignore these fields and\nrely on the Set-Cookie header instead."
+            },
+            "PasskeyEnrollRequest": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Challenge Token"
+                    },
+                    "credential": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Credential"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token",
+                    "credential"
+                ],
+                "title": "PasskeyEnrollRequest"
+            },
+            "PasskeyInitRequest": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Challenge Token"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token"
+                ],
+                "title": "PasskeyInitRequest"
+            },
+            "PasskeyInitResponse": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "title": "Challenge Token"
+                    },
+                    "options": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Options"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token",
+                    "options"
+                ],
+                "title": "PasskeyInitResponse",
+                "description": "The `options` blob is the WebAuthn PublicKeyCredentialCreationOptions\n(or RequestOptions for authentication) \u2014 pass it directly to the\nbrowser's navigator.credentials.create / get APIs."
+            },
+            "PasswordResetConfirm": {
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Token"
+                    },
+                    "new_password": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 12,
+                        "title": "New Password"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "token",
+                    "new_password"
+                ],
+                "title": "PasswordResetConfirm"
+            },
+            "PasswordResetRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Email"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email"
+                ],
+                "title": "PasswordResetRequest"
+            },
+            "SessionRevokeRequest": {
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "minLength": 8,
+                        "title": "Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "token"
+                ],
+                "title": "SessionRevokeRequest"
+            },
+            "SessionRevokeResponse": {
+                "properties": {
+                    "revoked": {
+                        "type": "boolean",
+                        "title": "Revoked"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "revoked"
+                ],
+                "title": "SessionRevokeResponse"
+            },
+            "SessionValidateRequest": {
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "minLength": 8,
+                        "title": "Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "token"
+                ],
+                "title": "SessionValidateRequest"
+            },
+            "SessionValidateResponse": {
+                "properties": {
+                    "valid": {
+                        "type": "boolean",
+                        "title": "Valid"
+                    },
+                    "user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company Id"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Status"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "valid"
+                ],
+                "title": "SessionValidateResponse",
+                "description": "200 in both valid + invalid cases (so callers can cache negatives briefly\nwithout conflating with service-down). 401 reserved for HMAC failures."
+            },
+            "SignupRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 12,
+                        "title": "Password"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "company_name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Company Name"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Za-z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password",
+                    "name",
+                    "company_name"
+                ],
+                "title": "SignupRequest",
+                "description": "Body for POST /v1/signup \u2014 atomic create-company + create-user + send-verification.",
+                "examples": [
+                    {
+                        "company_name": "Acme A/S",
+                        "country_of_formation": "DK",
+                        "email": "founder@acme.example",
+                        "name": "Acme Founder",
+                        "password": "correct horse battery staple"
+                    }
+                ]
+            },
+            "SignupResponse": {
+                "properties": {
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "title": "User Id"
+                    },
+                    "message": {
+                        "type": "string",
+                        "title": "Message",
+                        "default": "Signup received. Check your email to verify the address."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "company_id",
+                    "user_id"
+                ],
+                "title": "SignupResponse",
+                "description": "We deliberately do NOT include the verification token in the response\n\u2014 it goes only to the email. Returning a generic ack prevents probing\nwhether an email exists in the system."
+            },
+            "TotpEnrollRequest": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Challenge Token"
+                    },
+                    "factor_id": {
+                        "type": "string",
+                        "maxLength": 36,
+                        "minLength": 36,
+                        "title": "Factor Id"
+                    },
+                    "code": {
+                        "type": "string",
+                        "maxLength": 6,
+                        "minLength": 6,
+                        "pattern": "^\\d{6}$",
+                        "title": "Code"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token",
+                    "factor_id",
+                    "code"
+                ],
+                "title": "TotpEnrollRequest"
+            },
+            "TotpInitRequest": {
+                "properties": {
+                    "challenge_token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Challenge Token"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "challenge_token"
+                ],
+                "title": "TotpInitRequest"
+            },
+            "TotpInitResponse": {
+                "properties": {
+                    "factor_id": {
+                        "type": "string",
+                        "title": "Factor Id"
+                    },
+                    "provisioning_uri": {
+                        "type": "string",
+                        "title": "Provisioning Uri"
+                    },
+                    "qr_svg_data_url": {
+                        "type": "string",
+                        "title": "Qr Svg Data Url"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "factor_id",
+                    "provisioning_uri",
+                    "qr_svg_data_url"
+                ],
+                "title": "TotpInitResponse"
+            },
+            "UserCreate": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Email"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "role": {
+                        "type": "string",
+                        "pattern": "^[ABC]$",
+                        "title": "Role",
+                        "default": "C"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "name"
+                ],
+                "title": "UserCreate"
+            },
+            "UserResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "role": {
+                        "type": "string",
+                        "title": "Role"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "idv_status": {
+                        "type": "string",
+                        "title": "Idv Status"
+                    },
+                    "idv_verified_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Idv Verified At"
+                    },
+                    "last_login_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Login At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "company_id",
+                    "email",
+                    "name",
+                    "phone",
+                    "role",
+                    "status",
+                    "idv_status",
+                    "idv_verified_at",
+                    "last_login_at",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "UserResponse"
+            },
+            "UserUpdate": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[ABC]$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "status": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^(active|suspended)$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "title": "UserUpdate"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "VerifyEmailRequest": {
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 8,
+                        "title": "Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "token"
+                ],
+                "title": "VerifyEmailRequest"
+            }
+        },
+        "securitySchemes": {
+            "ApiKey": {
+                "type": "apiKey",
+                "description": "End-user or operator API key. Format: `paer_sk_<43>`.",
+                "in": "header",
+                "name": "X-API-Key"
+            },
+            "ServiceAuth": {
+                "type": "apiKey",
+                "description": "HMAC-SHA256 of the request body, signed with SERVICE_HMAC_SECRET.",
+                "in": "header",
+                "name": "X-Service-Auth"
+            },
+            "SessionToken": {
+                "type": "apiKey",
+                "description": "Plaintext user-api session token \u2014 used by paer-app to act as a logged-in user. MUST be accompanied by `X-Service-Auth: hmac_sha256(SERVICE_HMAC_SECRET, session_token)`. TLS provides request integrity; the HMAC proves the caller possesses the inter-service secret.",
+                "in": "header",
+                "name": "X-Session-Token"
+            }
+        }
+    }
+}

@@ -1,0 +1,42 @@
+name: Refresh OpenAPI specs
+
+# Pulls the three live /openapi.json endpoints, rewrites specs/*.json,
+# commits any changes (so the deploy.yml workflow picks them up).
+#
+# Triggered:
+#   - Daily at 06:00 UTC (08:00 Europe/Copenhagen — early enough to be fresh
+#     by the time any reader is awake)
+#   - On manual dispatch (after a backend service deploys, hit:
+#       gh workflow run refresh.yml -R paer-aps/paer-docs)
+#
+# A future improvement: have each service's deploy.yml fire a
+# `workflow_dispatch` event here via the gh CLI so refresh is automatic.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh specs
+        run: ./scripts/refresh_specs.sh
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet specs/; then
+            echo "no spec changes"
+            exit 0
+          fi
+          git add specs/
+          git commit -m "chore: refresh OpenAPI specs $(date -u +%Y-%m-%d)"
+          git push

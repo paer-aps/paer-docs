@@ -1,0 +1,1544 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Paer Quotations API",
+        "description": "FX and cross-border payment quotes for Paer.dk",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "description": "Liveness + DB connectivity probe.\n\nApp Runner's health check treats any non-200 as unhealthy and will pull the\ninstance from the load balancer after the configured unhealthy threshold.\nReturning 503 when the DB is unreachable is what we want \u2014 better to fail\nclosed than keep routing traffic to a pod that can't persist quotes.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Health Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/fx/corridors": {
+            "get": {
+                "tags": [
+                    "fx"
+                ],
+                "summary": "Get Corridors",
+                "description": "Complete corridor catalog in one call.\n\nOn the sell side: the two currencies Paer accepts as source (EUR, DKK)\nand the pay-in rail(s) for each.\n\nOn the buy side: every currency we can quote against, each with one or\nmore destination-country entries, and an optional `other_country_fallback`\ndescribing what happens if the customer wants the currency paid into a\nbank outside that currency's native country (routed via SWIFT).\n\n`bfi_partner` is intentionally absent from this response \u2014 which Circle\nBFI partner routes which corridor is not customer-facing information.",
+                "operationId": "get_corridors_v1_fx_corridors_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CorridorsResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/fx/rate": {
+            "get": {
+                "tags": [
+                    "fx"
+                ],
+                "summary": "Get Rate",
+                "description": "Direct mid-market rate lookup. Not used in quote creation (quotes\ncompute their own mid + spread) \u2014 exposed for debugging + reference.",
+                "operationId": "get_rate_v1_fx_rate_get",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 3,
+                            "title": "From"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 3,
+                            "title": "To"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "title": "Response Get Rate V1 Fx Rate Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/quotes": {
+            "post": {
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "Create Quote",
+                "description": "Request a live FX quote.\n\nBody contract:\n- `sell_currency` + `buy_currency` \u2014 required, 3-letter ISO 4217.\n- Exactly ONE of `sell_amount` / `buy_amount` (422 otherwise).\n- `destination_country` + `payout_method` \u2014 optional; see `GET /v1/fx/corridors`.\n\nAuthentication is optional. Quotes created without an API key can be\ninspected but not accepted (rule 5). Authenticated quotes are tied to\nthe caller's `company_id` and `user_id` (via paer-user-api introspection)\nand can be accepted by any A/B-role user from the same company.",
+                "operationId": "create_quote_v1_quotes_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QuoteCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QuoteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ]
+            }
+        },
+        "/v1/quotes/{quote_id}": {
+            "get": {
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "Get Quote",
+                "description": "Fetch a quote by ID.\n\n`status` reflects real-time state \u2014 a quote stored as `\"live\"` whose\n`expires_at` has passed returns `\"expired\"` here (the DB transition\nhappens lazily on the next accept attempt; this read does not mutate).",
+                "operationId": "get_quote_v1_quotes__quote_id__get",
+                "parameters": [
+                    {
+                        "name": "quote_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Quote Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QuoteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/quotes/{quote_id}/accept": {
+            "post": {
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "Accept Quote",
+                "description": "Accept a live quote.\n\nRole gates (paer-user-api):\n  - C-role caller: 403 view_only_role_cannot_accept\n  - A-role caller: solo authority \u2014 applies immediately (200)\n  - B-role caller: signature recorded; quote stays in\n    `pending_signatures` (response code 202) until a second distinct\n    A or B from the same company also calls this endpoint.\n\nIdempotency-Key scope: keyed by `(idempotency_key, user_id, company_id)`.\nA retry from a different device (same user, different api key) hits the cache.",
+                "operationId": "accept_quote_v1_quotes__quote_id__accept_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "quote_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Quote Id"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Idempotency-Key"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QuoteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/api-keys": {
+            "post": {
+                "tags": [
+                    "admin",
+                    "deprecated"
+                ],
+                "summary": "Create Api Key Retired",
+                "operationId": "create_api_key_retired_v1_admin_api_keys_post",
+                "responses": {
+                    "410": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "AdminKey": []
+                    }
+                ]
+            }
+        },
+        "/v1/admin/api-keys/{key_id}": {
+            "delete": {
+                "tags": [
+                    "admin",
+                    "deprecated"
+                ],
+                "summary": "Revoke Api Key Retired",
+                "operationId": "revoke_api_key_retired_v1_admin_api_keys__key_id__delete",
+                "security": [
+                    {
+                        "AdminKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "key_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Key Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "410": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/quotes": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List Quotes",
+                "description": "List quotes newest-first, with optional filters. Defaults to the 50 most recent.",
+                "operationId": "list_quotes_v1_admin_quotes_get",
+                "security": [
+                    {
+                        "AdminKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 200,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "pattern": "^(live|accepted|expired)$"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter by quote status. Omit to return all.",
+                            "title": "Status"
+                        },
+                        "description": "Filter by quote status. Omit to return all."
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "maxLength": 64
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "User Id"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "ISO 8601; inclusive lower bound on created_at",
+                            "title": "Since"
+                        },
+                        "description": "ISO 8601; inclusive lower bound on created_at"
+                    },
+                    {
+                        "name": "until",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "ISO 8601; exclusive upper bound on created_at",
+                            "title": "Until"
+                        },
+                        "description": "ISO 8601; exclusive upper bound on created_at"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/QuoteListRow"
+                                    },
+                                    "title": "Response List Quotes V1 Admin Quotes Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/quotes/{quote_id}/full": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get Quote Full",
+                "description": "Full drill-down on a single quote for debugging / issue investigation.",
+                "operationId": "get_quote_full_v1_admin_quotes__quote_id__full_get",
+                "security": [
+                    {
+                        "AdminKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "quote_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Quote Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QuoteFullResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Root  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AuditLogEntry": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "event_type": {
+                        "type": "string",
+                        "title": "Event Type"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Timestamp"
+                    },
+                    "actor": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Actor"
+                    },
+                    "payload": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Payload"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "event_type",
+                    "timestamp",
+                    "actor",
+                    "payload"
+                ],
+                "title": "AuditLogEntry"
+            },
+            "BuyCurrencyEntry": {
+                "properties": {
+                    "currency": {
+                        "type": "string",
+                        "title": "Currency"
+                    },
+                    "destinations": {
+                        "items": {
+                            "$ref": "#/components/schemas/DestinationEntry"
+                        },
+                        "type": "array",
+                        "title": "Destinations"
+                    },
+                    "other_country_fallback": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/OtherCountryFallback"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "currency",
+                    "destinations"
+                ],
+                "title": "BuyCurrencyEntry"
+            },
+            "CorridorsResponse": {
+                "properties": {
+                    "sell_currencies": {
+                        "items": {
+                            "$ref": "#/components/schemas/SellCurrencyEntry"
+                        },
+                        "type": "array",
+                        "title": "Sell Currencies"
+                    },
+                    "buy_currencies": {
+                        "items": {
+                            "$ref": "#/components/schemas/BuyCurrencyEntry"
+                        },
+                        "type": "array",
+                        "title": "Buy Currencies"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "sell_currencies",
+                    "buy_currencies"
+                ],
+                "title": "CorridorsResponse"
+            },
+            "DestinationEntry": {
+                "properties": {
+                    "country": {
+                        "type": "string",
+                        "title": "Country"
+                    },
+                    "payout_methods": {
+                        "items": {
+                            "$ref": "#/components/schemas/PayoutMethodPublic"
+                        },
+                        "type": "array",
+                        "title": "Payout Methods"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "country",
+                    "payout_methods"
+                ],
+                "title": "DestinationEntry"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "MonthlyVolumeEntry": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "year_month": {
+                        "title": "Year Month"
+                    },
+                    "eur_value": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Eur Value"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "title": "User Id"
+                    },
+                    "recorded_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Recorded At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "year_month",
+                    "eur_value",
+                    "user_id",
+                    "recorded_at"
+                ],
+                "title": "MonthlyVolumeEntry"
+            },
+            "OtherCountryFallback": {
+                "properties": {
+                    "payout_methods": {
+                        "items": {
+                            "$ref": "#/components/schemas/PayoutMethodPublic"
+                        },
+                        "type": "array",
+                        "title": "Payout Methods"
+                    },
+                    "note": {
+                        "type": "string",
+                        "title": "Note"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "payout_methods",
+                    "note"
+                ],
+                "title": "OtherCountryFallback"
+            },
+            "PayInMethod": {
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "title": "Code"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "typical_speed": {
+                        "type": "string",
+                        "title": "Typical Speed"
+                    },
+                    "notes": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Notes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "code",
+                    "name",
+                    "typical_speed"
+                ],
+                "title": "PayInMethod"
+            },
+            "PayoutMethodPublic": {
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "title": "Code"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "typical_speed": {
+                        "type": "string",
+                        "title": "Typical Speed"
+                    },
+                    "notes": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Notes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "code",
+                    "name",
+                    "typical_speed"
+                ],
+                "title": "PayoutMethodPublic",
+                "description": "Customer-facing subset. No `bfi_partner`."
+            },
+            "QuoteCreate": {
+                "properties": {
+                    "sell_currency": {
+                        "type": "string",
+                        "maxLength": 3,
+                        "minLength": 3,
+                        "pattern": "^[A-Za-z]{3}$",
+                        "title": "Sell Currency",
+                        "description": "Source currency (ISO 4217, 3-letter). Must be DKK or EUR \u2014 Paer's limited PI license only permits these two as source.",
+                        "examples": [
+                            "EUR",
+                            "DKK"
+                        ]
+                    },
+                    "buy_currency": {
+                        "type": "string",
+                        "maxLength": 3,
+                        "minLength": 3,
+                        "pattern": "^[A-Za-z]{3}$",
+                        "title": "Buy Currency",
+                        "description": "Destination currency (ISO 4217, 3-letter). See `GET /v1/fx/corridors` for the full supported list.",
+                        "examples": [
+                            "USD",
+                            "BRL",
+                            "INR",
+                            "JPY"
+                        ]
+                    },
+                    "sell_amount": {
+                        "anyOf": [
+                            {
+                                "type": "number",
+                                "exclusiveMaximum": 1000000000.0,
+                                "exclusiveMinimum": 0.0
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sell Amount",
+                        "description": "Amount to SELL, denominated in `sell_currency`. **Provide EXACTLY ONE of `sell_amount` or `buy_amount`.** Range: 0.01 to 999,999,999.",
+                        "examples": [
+                            "1000.00"
+                        ]
+                    },
+                    "buy_amount": {
+                        "anyOf": [
+                            {
+                                "type": "number",
+                                "exclusiveMaximum": 1000000000.0,
+                                "exclusiveMinimum": 0.0
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Buy Amount",
+                        "description": "Amount to BUY, denominated in `buy_currency`. **Provide EXACTLY ONE of `sell_amount` or `buy_amount`.** Range: 0.01 to 999,999,999.",
+                        "examples": [
+                            "1000.00"
+                        ]
+                    },
+                    "destination_country": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Za-z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Destination Country",
+                        "description": "Beneficiary bank's country (ISO 3166-1 alpha-2). Optional. If omitted, defaults to the native country of `buy_currency` (e.g. US for USD). Pass a non-native country to route via SWIFT for off-country holdings (e.g. INR held at a UK bank: set `destination_country=GB`).",
+                        "examples": [
+                            "US",
+                            "BR",
+                            "IN",
+                            "GB"
+                        ]
+                    },
+                    "payout_method": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32,
+                                "pattern": "^[A-Za-z0-9_]+$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Payout Method",
+                        "description": "Specific payout rail code. Optional. If omitted, the fastest rail for the corridor is used. See `GET /v1/fx/corridors` for valid codes per (buy_currency, destination_country). Examples: `PIX` (BRL/BR), `SPEI` (MXN/MX), `IMPS` (INR/IN), `RTP` (USD/US), `SWIFT` (off-country fallback).",
+                        "examples": [
+                            "RTP",
+                            "PIX",
+                            "SPEI",
+                            "SWIFT"
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "sell_currency",
+                    "buy_currency"
+                ],
+                "title": "QuoteCreate",
+                "description": "Body for `POST /v1/quotes`.\n\nRequired fields: `sell_currency`, `buy_currency`, AND **exactly one** of\n`sell_amount` or `buy_amount`. Omitting both or providing both returns 422.\n\nOptional fields: `destination_country` (ISO 3166-1 alpha-2), `payout_method`\n(see `GET /v1/fx/corridors` for valid codes per corridor).",
+                "examples": [
+                    {
+                        "buy_currency": "USD",
+                        "destination_country": "US",
+                        "payout_method": "RTP",
+                        "sell_amount": "1000.00",
+                        "sell_currency": "EUR"
+                    },
+                    {
+                        "buy_amount": "5000.00",
+                        "buy_currency": "BRL",
+                        "destination_country": "BR",
+                        "payout_method": "PIX",
+                        "sell_currency": "DKK"
+                    },
+                    {
+                        "buy_currency": "DKK",
+                        "sell_amount": "500.00",
+                        "sell_currency": "EUR"
+                    }
+                ]
+            },
+            "QuoteFullResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "sell_currency": {
+                        "type": "string",
+                        "title": "Sell Currency"
+                    },
+                    "buy_currency": {
+                        "type": "string",
+                        "title": "Buy Currency"
+                    },
+                    "sell_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Sell Amount"
+                    },
+                    "buy_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Buy Amount"
+                    },
+                    "rate": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Rate"
+                    },
+                    "mid_market_rate": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Mid Market Rate"
+                    },
+                    "spread_bps": {
+                        "type": "integer",
+                        "title": "Spread Bps"
+                    },
+                    "flat_fee_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Flat Fee Amount"
+                    },
+                    "flat_fee_currency": {
+                        "type": "string",
+                        "title": "Flat Fee Currency"
+                    },
+                    "payout_method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Payout Method"
+                    },
+                    "settlement_min_minutes": {
+                        "type": "integer",
+                        "title": "Settlement Min Minutes"
+                    },
+                    "settlement_max_minutes": {
+                        "type": "integer",
+                        "title": "Settlement Max Minutes"
+                    },
+                    "sell_amount_eur": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Sell Amount Eur"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Expires At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "accepted_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accepted At"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "destination_country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Destination Country"
+                    },
+                    "provider": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider"
+                    },
+                    "provider_quote_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider Quote Id"
+                    },
+                    "blockchain": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Blockchain"
+                    },
+                    "bfi_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bfi Id"
+                    },
+                    "raw_provider_response": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Raw Provider Response"
+                    },
+                    "created_by_ip": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Created By Ip"
+                    },
+                    "api_key_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Api Key Id"
+                    },
+                    "accepted_by_user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accepted By User Id"
+                    },
+                    "audit_events": {
+                        "items": {
+                            "$ref": "#/components/schemas/AuditLogEntry"
+                        },
+                        "type": "array",
+                        "title": "Audit Events"
+                    },
+                    "monthly_volume_record": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/MonthlyVolumeEntry"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "sell_currency",
+                    "buy_currency",
+                    "sell_amount",
+                    "buy_amount",
+                    "rate",
+                    "mid_market_rate",
+                    "spread_bps",
+                    "flat_fee_amount",
+                    "flat_fee_currency",
+                    "payout_method",
+                    "settlement_min_minutes",
+                    "settlement_max_minutes",
+                    "sell_amount_eur",
+                    "expires_at",
+                    "created_at",
+                    "accepted_at",
+                    "status",
+                    "destination_country",
+                    "provider",
+                    "provider_quote_id",
+                    "blockchain",
+                    "bfi_id",
+                    "raw_provider_response",
+                    "created_by_ip",
+                    "api_key_id",
+                    "accepted_by_user_id",
+                    "audit_events",
+                    "monthly_volume_record"
+                ],
+                "title": "QuoteFullResponse",
+                "description": "Full drill-down on a single quote. Every column on the `quotes` row,\nplus the raw provider response, audit events and volume record."
+            },
+            "QuoteListRow": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "sell_currency": {
+                        "type": "string",
+                        "title": "Sell Currency"
+                    },
+                    "buy_currency": {
+                        "type": "string",
+                        "title": "Buy Currency"
+                    },
+                    "sell_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Sell Amount"
+                    },
+                    "buy_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Buy Amount"
+                    },
+                    "rate": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Rate"
+                    },
+                    "spread_bps": {
+                        "type": "integer",
+                        "title": "Spread Bps"
+                    },
+                    "flat_fee_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Flat Fee Amount"
+                    },
+                    "destination_country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Destination Country"
+                    },
+                    "payout_method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Payout Method"
+                    },
+                    "provider": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider"
+                    },
+                    "bfi_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bfi Id"
+                    },
+                    "api_key_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Api Key Id"
+                    },
+                    "accepted_by_user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accepted By User Id"
+                    },
+                    "accepted_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accepted At"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Expires At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "created_at",
+                    "status",
+                    "sell_currency",
+                    "buy_currency",
+                    "sell_amount",
+                    "buy_amount",
+                    "rate",
+                    "spread_bps",
+                    "flat_fee_amount",
+                    "destination_country",
+                    "payout_method",
+                    "provider",
+                    "bfi_id",
+                    "api_key_id",
+                    "accepted_by_user_id",
+                    "accepted_at",
+                    "expires_at"
+                ],
+                "title": "QuoteListRow",
+                "description": "Compact row shown in list views. Excludes raw_provider_response (noisy)\nand internal blobs that only matter for drill-down."
+            },
+            "QuoteResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "sell_currency": {
+                        "type": "string",
+                        "title": "Sell Currency"
+                    },
+                    "buy_currency": {
+                        "type": "string",
+                        "title": "Buy Currency"
+                    },
+                    "sell_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Sell Amount"
+                    },
+                    "buy_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Buy Amount"
+                    },
+                    "rate": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Rate"
+                    },
+                    "mid_market_rate": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Mid Market Rate"
+                    },
+                    "spread_bps": {
+                        "type": "integer",
+                        "title": "Spread Bps"
+                    },
+                    "flat_fee_amount": {
+                        "type": "string",
+                        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                        "title": "Flat Fee Amount"
+                    },
+                    "flat_fee_currency": {
+                        "type": "string",
+                        "title": "Flat Fee Currency"
+                    },
+                    "payout_method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Payout Method"
+                    },
+                    "settlement_time_estimate": {
+                        "$ref": "#/components/schemas/SettlementTime"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Expires At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "sell_currency",
+                    "buy_currency",
+                    "sell_amount",
+                    "buy_amount",
+                    "rate",
+                    "mid_market_rate",
+                    "spread_bps",
+                    "flat_fee_amount",
+                    "flat_fee_currency",
+                    "payout_method",
+                    "settlement_time_estimate",
+                    "expires_at",
+                    "created_at",
+                    "status"
+                ],
+                "title": "QuoteResponse"
+            },
+            "SellCurrencyEntry": {
+                "properties": {
+                    "currency": {
+                        "type": "string",
+                        "title": "Currency"
+                    },
+                    "pay_in_methods": {
+                        "items": {
+                            "$ref": "#/components/schemas/PayInMethod"
+                        },
+                        "type": "array",
+                        "title": "Pay In Methods"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "currency",
+                    "pay_in_methods"
+                ],
+                "title": "SellCurrencyEntry"
+            },
+            "SettlementTime": {
+                "properties": {
+                    "min_minutes": {
+                        "type": "integer",
+                        "title": "Min Minutes"
+                    },
+                    "max_minutes": {
+                        "type": "integer",
+                        "title": "Max Minutes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "min_minutes",
+                    "max_minutes"
+                ],
+                "title": "SettlementTime"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        },
+        "securitySchemes": {
+            "ApiKey": {
+                "type": "apiKey",
+                "description": "Customer API key (`paer_sk_...`). Minted by paer-user-api; this service introspects via /v1/keys/introspect for resolution.",
+                "in": "header",
+                "name": "X-API-Key"
+            },
+            "AdminKey": {
+                "type": "apiKey",
+                "description": "Operator admin key. Today this only gates the rate-integrity admin UI and the (deprecated) /v1/admin/api-keys endpoint that returns 410 Gone with a redirect to user-api.",
+                "in": "header",
+                "name": "X-Admin-Key"
+            }
+        }
+    }
+}

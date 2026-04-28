@@ -1,0 +1,2948 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Paer Beneficiary API",
+        "description": "Counterparty + screening service for Paer.dk",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "description": "Liveness + DB connectivity probe.\n\nApp Runner uses this for the health check; failing it pulls the instance\nout of the load balancer.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Health Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "summary": "Ready",
+                "description": "Readiness probe \u2014 distinct from liveness; both currently report the same.",
+                "operationId": "ready_ready_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Ready Ready Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries": {
+            "post": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Create a beneficiary, optionally with first payout account, and run screening",
+                "operationId": "create_v1_beneficiaries_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BeneficiaryCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "List beneficiaries (slim shape, no PII beyond name + country)",
+                "operationId": "list__v1_beneficiaries_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 200,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Status"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/BeneficiarySlim"
+                                    },
+                                    "title": "Response List  V1 Beneficiaries Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries/{beneficiary_id}": {
+            "get": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Drill-down \u2014 full record + all payout accounts",
+                "operationId": "get_one_v1_beneficiaries__beneficiary_id__get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Update mutable fields on a beneficiary",
+                "operationId": "update_v1_beneficiaries__beneficiary_id__patch",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BeneficiaryUpdate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries/{beneficiary_id}/archive": {
+            "post": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Archive a beneficiary (soft-delete)",
+                "operationId": "archive_v1_beneficiaries__beneficiary_id__archive_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    },
+                    {
+                        "name": "reason",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Reason"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries/{beneficiary_id}/screen": {
+            "post": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Re-run sanctions + PEP + adverse-media screening synchronously",
+                "operationId": "rescreen_v1_beneficiaries__beneficiary_id__screen_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries/{beneficiary_id}/payout-accounts": {
+            "post": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Add a new payout account to a beneficiary; runs CoP/VoP synchronously",
+                "operationId": "create_payout_account_v1_beneficiaries__beneficiary_id__payout_accounts_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PayoutAccountCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PayoutAccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "List payout accounts for a beneficiary",
+                "operationId": "list_payout_accounts_v1_beneficiaries__beneficiary_id__payout_accounts_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PayoutAccountResponse"
+                                    },
+                                    "title": "Response List Payout Accounts V1 Beneficiaries  Beneficiary Id  Payout Accounts Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/beneficiaries/{beneficiary_id}/payout-accounts/{payout_account_id}/archive": {
+            "post": {
+                "tags": [
+                    "beneficiaries"
+                ],
+                "summary": "Archive a payout account",
+                "operationId": "archive_payout_account_v1_beneficiaries__beneficiary_id__payout_accounts__payout_account_id__archive_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    },
+                    {
+                        "name": "payout_account_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Payout Account Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PayoutAccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/beneficiaries": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Operator list of all beneficiaries across companies",
+                "operationId": "list_all_v1_admin_beneficiaries_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 500,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Status"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/BeneficiarySlim"
+                                    },
+                                    "title": "Response List All V1 Admin Beneficiaries Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/beneficiaries/{beneficiary_id}": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Operator drill-down on a single beneficiary",
+                "operationId": "admin_get_one_v1_admin_beneficiaries__beneficiary_id__get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BeneficiaryFull"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/beneficiaries/{beneficiary_id}/screening-events": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Append-only screening timeline for a beneficiary",
+                "operationId": "list_events_v1_admin_beneficiaries__beneficiary_id__screening_events_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beneficiary_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Beneficiary Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ScreeningEventResponse"
+                                    },
+                                    "title": "Response List Events V1 Admin Beneficiaries  Beneficiary Id  Screening Events Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/screening-events/{event_id}/dispose": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Propose a disposition on a flagged screening event (A solo / B \u2192 quorum)",
+                "operationId": "propose_disposition_v1_admin_screening_events__event_id__dispose_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Event Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DispositionPropose"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScreeningEventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/screening-events/{event_id}/dispose/approve": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Second signature on a B-proposed disposition (A or B from Paer-Internal)",
+                "operationId": "approve_disposition_v1_admin_screening_events__event_id__dispose_approve_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Event Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DispositionApprove"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScreeningEventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/screening-events/{event_id}/dispose/withdraw": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Proposer cancels their own pending disposition before a second signature lands",
+                "operationId": "withdraw_disposition_v1_admin_screening_events__event_id__dispose_withdraw_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Event Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DispositionWithdraw"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScreeningEventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Root  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AchDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "ACH",
+                        "title": "Rail",
+                        "default": "ACH"
+                    },
+                    "ach_routing": {
+                        "type": "string",
+                        "pattern": "^\\d{9}$",
+                        "title": "Ach Routing"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "maxLength": 17,
+                        "minLength": 4,
+                        "title": "Account Number"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "ach_routing",
+                    "account_number"
+                ],
+                "title": "AchDetails",
+                "description": "US \u2014 ACH routing (9 digits) + account number."
+            },
+            "BeneficiaryCreate": {
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "pattern": "^(business|individual)$",
+                        "title": "Type"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "date_of_birth": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Birth"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "country_of_residence": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "title": "Country Of Residence"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "national_id_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Type"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "address_line1": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "type": "string",
+                        "maxLength": 32,
+                        "minLength": 1,
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "title": "Country"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "method_of_verification": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Method Of Verification"
+                    },
+                    "authorized_signatories": {
+                        "items": {
+                            "$ref": "#/components/schemas/Signatory"
+                        },
+                        "type": "array",
+                        "title": "Authorized Signatories"
+                    },
+                    "beneficiary_owners": {
+                        "items": {
+                            "$ref": "#/components/schemas/UltimateBeneficialOwner"
+                        },
+                        "type": "array",
+                        "title": "Beneficiary Owners"
+                    },
+                    "notes": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 4000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Notes"
+                    },
+                    "initial_payout_account": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PayoutAccountCreate"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "type",
+                    "name",
+                    "country_of_residence",
+                    "address_line1",
+                    "city",
+                    "postal_code",
+                    "country"
+                ],
+                "title": "BeneficiaryCreate",
+                "examples": [
+                    {
+                        "address_line1": "Musterstra\u00dfe 1",
+                        "city": "Berlin",
+                        "country": "DE",
+                        "country_of_formation": "DE",
+                        "country_of_residence": "DE",
+                        "entity_type": "GmbH",
+                        "industry_type": "Manufacturing",
+                        "method_of_verification": "Registry extract",
+                        "name": "Acme GmbH",
+                        "national_id_number": "HRB 12345",
+                        "national_id_type": "OTHER",
+                        "postal_code": "10115",
+                        "source_of_funds": "Business revenue",
+                        "trade_name": "Acme",
+                        "type": "business"
+                    }
+                ]
+            },
+            "BeneficiaryFull": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "created_by_user_id": {
+                        "type": "string",
+                        "title": "Created By User Id"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "date_of_birth": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Birth"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "country_of_residence": {
+                        "type": "string",
+                        "title": "Country Of Residence"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "national_id_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Type"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "address_line1": {
+                        "type": "string",
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "type": "string",
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "type": "string",
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "type": "string",
+                        "title": "Country"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "method_of_verification": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Method Of Verification"
+                    },
+                    "authorized_signatories": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Authorized Signatories"
+                    },
+                    "beneficiary_owners": {
+                        "items": {},
+                        "type": "array",
+                        "title": "Beneficiary Owners"
+                    },
+                    "notes": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Notes"
+                    },
+                    "last_screened_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Screened At"
+                    },
+                    "sanctions_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Status"
+                    },
+                    "pep_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Status"
+                    },
+                    "adverse_media_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Status"
+                    },
+                    "cop_vop_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cop Vop Status"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    },
+                    "payout_accounts": {
+                        "items": {
+                            "$ref": "#/components/schemas/PayoutAccountResponse"
+                        },
+                        "type": "array",
+                        "title": "Payout Accounts"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "company_id",
+                    "created_by_user_id",
+                    "type",
+                    "status",
+                    "name",
+                    "trade_name",
+                    "date_of_formation",
+                    "date_of_birth",
+                    "country_of_formation",
+                    "country_of_residence",
+                    "national_id_number",
+                    "national_id_type",
+                    "entity_type",
+                    "industry_type",
+                    "source_of_funds",
+                    "address_line1",
+                    "address_line2",
+                    "city",
+                    "district",
+                    "postal_code",
+                    "country",
+                    "website",
+                    "phone",
+                    "email",
+                    "method_of_verification",
+                    "authorized_signatories",
+                    "beneficiary_owners",
+                    "notes",
+                    "last_screened_at",
+                    "sanctions_status",
+                    "pep_status",
+                    "adverse_media_status",
+                    "cop_vop_status",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "BeneficiaryFull",
+                "description": "Drill-down shape \u2014 full record + payout accounts."
+            },
+            "BeneficiarySlim": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "company_id": {
+                        "type": "string",
+                        "title": "Company Id"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "country_of_residence": {
+                        "type": "string",
+                        "title": "Country Of Residence"
+                    },
+                    "sanctions_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Status"
+                    },
+                    "pep_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Status"
+                    },
+                    "adverse_media_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Status"
+                    },
+                    "last_screened_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Screened At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "company_id",
+                    "type",
+                    "status",
+                    "name",
+                    "country_of_residence",
+                    "sanctions_status",
+                    "pep_status",
+                    "adverse_media_status",
+                    "last_screened_at",
+                    "created_at"
+                ],
+                "title": "BeneficiarySlim",
+                "description": "List-view shape \u2014 no PII beyond name + country. Mirrors paer-user-api's\nslim-list pattern for admin endpoints."
+            },
+            "BeneficiaryUpdate": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "date_of_birth": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Birth"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "country_of_residence": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Residence"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "national_id_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Type"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "address_line1": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "method_of_verification": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Method Of Verification"
+                    },
+                    "authorized_signatories": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/Signatory"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Authorized Signatories"
+                    },
+                    "beneficiary_owners": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/UltimateBeneficialOwner"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Beneficiary Owners"
+                    },
+                    "notes": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 4000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Notes"
+                    }
+                },
+                "type": "object",
+                "title": "BeneficiaryUpdate",
+                "description": "PATCH body \u2014 every field optional. Status and screening cache columns\nare NOT here; those are mutated by status-transition / screening flows."
+            },
+            "DispositionApprove": {
+                "properties": {
+                    "comment": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Comment"
+                    }
+                },
+                "type": "object",
+                "title": "DispositionApprove",
+                "description": "Body for `POST /v1/admin/screening-events/{id}/dispose/approve` \u2014\nsecond signature on a B-proposed disposition."
+            },
+            "DispositionPropose": {
+                "properties": {
+                    "disposition": {
+                        "type": "string",
+                        "pattern": "^(approved|rejected|escalated)$",
+                        "title": "Disposition"
+                    },
+                    "basis": {
+                        "type": "string",
+                        "maxLength": 4000,
+                        "minLength": 20,
+                        "title": "Basis"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "disposition",
+                    "basis"
+                ],
+                "title": "DispositionPropose",
+                "description": "Body for `POST /v1/admin/screening-events/{id}/dispose` \u2014 operator\noverride on a flagged result. A solo applies, B routes to pending_approval.",
+                "examples": [
+                    {
+                        "basis": "Match is a politically-exposed person on the EU CFSP list with name similarity 78%; full DOB + country of residence diverge. Confirmed via secondary source. Risk acceptable per AML policy 4.2.",
+                        "disposition": "approved"
+                    }
+                ]
+            },
+            "DispositionWithdraw": {
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "minLength": 5,
+                        "title": "Reason"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "reason"
+                ],
+                "title": "DispositionWithdraw",
+                "description": "Body for `POST /v1/admin/screening-events/{id}/dispose/withdraw` \u2014\nproposer cancels their own pending disposition before approval."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "IbanDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "IBAN",
+                        "title": "Rail",
+                        "default": "IBAN"
+                    },
+                    "iban": {
+                        "type": "string",
+                        "maxLength": 34,
+                        "minLength": 15,
+                        "title": "Iban"
+                    },
+                    "bic": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 11,
+                                "minLength": 8
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bic"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "iban"
+                ],
+                "title": "IbanDetails"
+            },
+            "IfscDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "IFSC",
+                        "title": "Rail",
+                        "default": "IFSC"
+                    },
+                    "ifsc": {
+                        "type": "string",
+                        "maxLength": 11,
+                        "minLength": 11,
+                        "title": "Ifsc"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "maxLength": 32,
+                        "minLength": 4,
+                        "title": "Account Number"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "ifsc",
+                    "account_number"
+                ],
+                "title": "IfscDetails",
+                "description": "India \u2014 IFSC + account number."
+            },
+            "PayoutAccountCreate": {
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "title": "Label",
+                        "default": "Primary"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$",
+                        "title": "Currency"
+                    },
+                    "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "title": "Country"
+                    },
+                    "account_holder_name": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Account Holder Name"
+                    },
+                    "bank_name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bank Name"
+                    },
+                    "bank_country": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bank Country"
+                    },
+                    "details": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/IbanDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SepaInstantDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/PixDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SpeiDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SortCodeDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/IfscDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/UpiDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/AchDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/SwiftDetails"
+                            },
+                            {
+                                "$ref": "#/components/schemas/WireDetails"
+                            }
+                        ],
+                        "title": "Details",
+                        "discriminator": {
+                            "propertyName": "rail",
+                            "mapping": {
+                                "ACH": "#/components/schemas/AchDetails",
+                                "IBAN": "#/components/schemas/IbanDetails",
+                                "IFSC": "#/components/schemas/IfscDetails",
+                                "PIX": "#/components/schemas/PixDetails",
+                                "SEPA_INSTANT": "#/components/schemas/SepaInstantDetails",
+                                "SORT_CODE": "#/components/schemas/SortCodeDetails",
+                                "SPEI": "#/components/schemas/SpeiDetails",
+                                "SWIFT": "#/components/schemas/SwiftDetails",
+                                "UPI": "#/components/schemas/UpiDetails",
+                                "WIRE": "#/components/schemas/WireDetails"
+                            }
+                        }
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "currency",
+                    "country",
+                    "account_holder_name",
+                    "details"
+                ],
+                "title": "PayoutAccountCreate",
+                "examples": [
+                    {
+                        "account_holder_name": "Acme GmbH",
+                        "bank_country": "DE",
+                        "bank_name": "Commerzbank AG",
+                        "country": "DE",
+                        "currency": "EUR",
+                        "details": {
+                            "bic": "COBADEFFXXX",
+                            "iban": "DE89370400440532013000",
+                            "rail": "IBAN"
+                        },
+                        "label": "EUR account"
+                    },
+                    {
+                        "account_holder_name": "Acme Brasil Ltda",
+                        "country": "BR",
+                        "currency": "BRL",
+                        "details": {
+                            "pix_key": "12345678000123",
+                            "pix_key_type": "CNPJ",
+                            "rail": "PIX"
+                        },
+                        "label": "BRL account"
+                    }
+                ]
+            },
+            "PayoutAccountResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "beneficiary_id": {
+                        "type": "string",
+                        "title": "Beneficiary Id"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "label": {
+                        "type": "string",
+                        "title": "Label"
+                    },
+                    "rail": {
+                        "type": "string",
+                        "title": "Rail"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "title": "Currency"
+                    },
+                    "country": {
+                        "type": "string",
+                        "title": "Country"
+                    },
+                    "account_holder_name": {
+                        "type": "string",
+                        "title": "Account Holder Name"
+                    },
+                    "bank_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bank Name"
+                    },
+                    "bank_country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bank Country"
+                    },
+                    "details": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Details"
+                    },
+                    "name_match_status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name Match Status"
+                    },
+                    "name_match_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name Match At"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "beneficiary_id",
+                    "status",
+                    "label",
+                    "rail",
+                    "currency",
+                    "country",
+                    "account_holder_name",
+                    "bank_name",
+                    "bank_country",
+                    "details",
+                    "name_match_status",
+                    "name_match_at",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "PayoutAccountResponse"
+            },
+            "PixDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "PIX",
+                        "title": "Rail",
+                        "default": "PIX"
+                    },
+                    "pix_key_type": {
+                        "type": "string",
+                        "enum": [
+                            "CPF",
+                            "CNPJ",
+                            "EMAIL",
+                            "PHONE",
+                            "EVP"
+                        ],
+                        "title": "Pix Key Type"
+                    },
+                    "pix_key": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "title": "Pix Key"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "pix_key_type",
+                    "pix_key"
+                ],
+                "title": "PixDetails",
+                "description": "Brazil \u2014 PIX instant rail. Key + key type.\n\n`pix_key_type` is declared before `pix_key` so the latter's field-validator\ncan read it from `info.data` (Pydantic v2 fills `info.data` left-to-right)."
+            },
+            "ScreeningEventResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "beneficiary_id": {
+                        "type": "string",
+                        "title": "Beneficiary Id"
+                    },
+                    "payout_account_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Payout Account Id"
+                    },
+                    "event_type": {
+                        "type": "string",
+                        "title": "Event Type"
+                    },
+                    "provider": {
+                        "type": "string",
+                        "title": "Provider"
+                    },
+                    "provider_ref": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Provider Ref"
+                    },
+                    "result": {
+                        "type": "string",
+                        "title": "Result"
+                    },
+                    "score": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Score"
+                    },
+                    "matched_lists": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Matched Lists"
+                    },
+                    "match_details": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Match Details"
+                    },
+                    "decision_status": {
+                        "type": "string",
+                        "title": "Decision Status"
+                    },
+                    "disposition": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Disposition"
+                    },
+                    "disposition_basis": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Disposition Basis"
+                    },
+                    "disposition_proposer_user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Disposition Proposer User Id"
+                    },
+                    "disposition_applied_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Disposition Applied At"
+                    },
+                    "disposition_withdrawn_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Disposition Withdrawn At"
+                    },
+                    "performed_by_user_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Performed By User Id"
+                    },
+                    "performed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Performed At"
+                    },
+                    "signatures": {
+                        "items": {
+                            "$ref": "#/components/schemas/ScreeningSignatureResponse"
+                        },
+                        "type": "array",
+                        "title": "Signatures"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "beneficiary_id",
+                    "payout_account_id",
+                    "event_type",
+                    "provider",
+                    "provider_ref",
+                    "result",
+                    "score",
+                    "matched_lists",
+                    "match_details",
+                    "decision_status",
+                    "disposition",
+                    "disposition_basis",
+                    "disposition_proposer_user_id",
+                    "disposition_applied_at",
+                    "disposition_withdrawn_at",
+                    "performed_by_user_id",
+                    "performed_at"
+                ],
+                "title": "ScreeningEventResponse"
+            },
+            "ScreeningSignatureResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "signer_user_id": {
+                        "type": "string",
+                        "title": "Signer User Id"
+                    },
+                    "signer_role_at_sign": {
+                        "type": "string",
+                        "title": "Signer Role At Sign"
+                    },
+                    "signed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Signed At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "signer_user_id",
+                    "signer_role_at_sign",
+                    "signed_at"
+                ],
+                "title": "ScreeningSignatureResponse"
+            },
+            "SepaInstantDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "SEPA_INSTANT",
+                        "title": "Rail",
+                        "default": "SEPA_INSTANT"
+                    },
+                    "iban": {
+                        "type": "string",
+                        "maxLength": 34,
+                        "minLength": 15,
+                        "title": "Iban"
+                    },
+                    "bic": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 11,
+                                "minLength": 8
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bic"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "iban"
+                ],
+                "title": "SepaInstantDetails",
+                "description": "SEPA Instant routing \u2014 same shape as IBAN, different rail discriminator\nso the caller signals 'route via SEPA Instant, not vanilla SEPA'."
+            },
+            "Signatory": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "date_of_birth": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Birth"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name"
+                ],
+                "title": "Signatory"
+            },
+            "SortCodeDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "SORT_CODE",
+                        "title": "Rail",
+                        "default": "SORT_CODE"
+                    },
+                    "sort_code": {
+                        "type": "string",
+                        "pattern": "^\\d{6}$",
+                        "title": "Sort Code"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "pattern": "^\\d{8}$",
+                        "title": "Account Number"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "sort_code",
+                    "account_number"
+                ],
+                "title": "SortCodeDetails",
+                "description": "UK \u2014 sort code (6 digits) + account number (8 digits)."
+            },
+            "SpeiDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "SPEI",
+                        "title": "Rail",
+                        "default": "SPEI"
+                    },
+                    "clabe": {
+                        "type": "string",
+                        "maxLength": 18,
+                        "minLength": 18,
+                        "title": "Clabe"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "clabe"
+                ],
+                "title": "SpeiDetails",
+                "description": "Mexico \u2014 SPEI rail. CLABE is mandatory and exactly 18 digits."
+            },
+            "SwiftDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "SWIFT",
+                        "title": "Rail",
+                        "default": "SWIFT"
+                    },
+                    "swift_bic": {
+                        "type": "string",
+                        "maxLength": 11,
+                        "minLength": 8,
+                        "title": "Swift Bic"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "maxLength": 34,
+                        "minLength": 4,
+                        "title": "Account Number"
+                    },
+                    "intermediary_bic": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 11,
+                                "minLength": 8
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Intermediary Bic"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "swift_bic",
+                    "account_number"
+                ],
+                "title": "SwiftDetails",
+                "description": "International correspondent banking \u2014 SWIFT BIC + account."
+            },
+            "UltimateBeneficialOwner": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "ownership_pct": {
+                        "anyOf": [
+                            {
+                                "type": "number",
+                                "maximum": 100.0,
+                                "minimum": 0.0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ownership Pct"
+                    },
+                    "date_of_birth": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Birth"
+                    },
+                    "country_of_residence": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Residence"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name"
+                ],
+                "title": "UltimateBeneficialOwner"
+            },
+            "UpiDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "UPI",
+                        "title": "Rail",
+                        "default": "UPI"
+                    },
+                    "upi_vpa": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9._\\-]+@[a-zA-Z][a-zA-Z0-9._\\-]*$",
+                        "title": "Upi Vpa"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "upi_vpa"
+                ],
+                "title": "UpiDetails",
+                "description": "India \u2014 UPI VPA (e.g. name@bank)."
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "WireDetails": {
+                "properties": {
+                    "rail": {
+                        "type": "string",
+                        "const": "WIRE",
+                        "title": "Rail",
+                        "default": "WIRE"
+                    },
+                    "swift_bic": {
+                        "type": "string",
+                        "maxLength": 11,
+                        "minLength": 8,
+                        "title": "Swift Bic"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "maxLength": 34,
+                        "minLength": 4,
+                        "title": "Account Number"
+                    },
+                    "intermediary_bic": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 11,
+                                "minLength": 8
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Intermediary Bic"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "swift_bic",
+                    "account_number"
+                ],
+                "title": "WireDetails",
+                "description": "US Fedwire / general bank wire \u2014 same shape as SWIFT but tagged WIRE."
+            }
+        },
+        "securitySchemes": {
+            "ApiKey": {
+                "type": "apiKey",
+                "description": "Customer API key (`paer_sk_...`). Minted by paer-user-api; this service introspects via /v1/keys/introspect for resolution.",
+                "in": "header",
+                "name": "X-API-Key"
+            }
+        }
+    }
+}

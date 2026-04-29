@@ -9,42 +9,44 @@
 <style>
   body { margin: 0; }
 </style>
+<!-- Load Scalar's bundle BEFORE we call into it -->
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </head>
 <body>
-<!-- Scalar configuration: JSON inside the <script> body, type="application/json".
-     This is the documented pattern at https://github.com/scalar/scalar
-     for multi-source / advanced configurations. -->
-<script id="api-reference" type="application/json">
-{
-  "theme": "default",
-  "layout": "modern",
-  "showSidebar": true,
-  "hideClientButton": false,
-  "hideDownloadButton": false,
-  "metaData": {
-    "title": "Paer API Reference",
-    "description": "API reference for paer.dk — quotes, identity, beneficiaries"
-  },
-  "sources": [
-    {
-      "url": "specs/quotes.json",
-      "title": "Quotes API",
-      "slug": "quotes",
-      "default": true
+<div id="api-reference"></div>
+<script>
+  // Multi-source rendering requires the programmatic JS API.
+  // The JSON-in-script-tag pattern only supports single-spec mode and
+  // ignores `sources` arrays — see scalar/scalar configuration docs.
+  Scalar.createApiReference('#api-reference', {
+    theme: 'default',
+    layout: 'modern',
+    showSidebar: true,
+    hideClientButton: false,
+    hideDownloadButton: false,
+    metaData: {
+      title: 'Paer API Reference',
+      description: 'API reference for paer.dk — quotes, identity, beneficiaries',
     },
-    {
-      "url": "specs/user.json",
-      "title": "User API",
-      "slug": "user"
-    },
-    {
-      "url": "specs/beneficiary.json",
-      "title": "Beneficiary API",
-      "slug": "beneficiary"
-    }
-  ]
-}
+    sources: [
+      {
+        url: 'specs/quotes.json',
+        title: 'Quotes API',
+        slug: 'quotes',
+        default: true,
+      },
+      {
+        url: 'specs/user.json',
+        title: 'User API',
+        slug: 'user',
+      },
+      {
+        url: 'specs/beneficiary.json',
+        title: 'Beneficiary API',
+        slug: 'beneficiary',
+      },
+    ],
+  });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
 </html>

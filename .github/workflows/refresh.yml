@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # needed for `gh workflow run deploy.yml` chaining
 
 jobs:
   refresh:
@@ -30,13 +31,25 @@ jobs:
         run: ./scripts/refresh_specs.sh
 
       - name: Commit if changed
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git diff --quiet specs/; then
             echo "no spec changes"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git add specs/
           git commit -m "chore: refresh OpenAPI specs $(date -u +%Y-%m-%d)"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # GitHub deliberately does NOT trigger workflows from commits made
+      # using GITHUB_TOKEN (loop prevention). So the auto-commit above won't
+      # fire deploy.yml on its own — we trigger it explicitly here.
+      - name: Trigger deploy workflow
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml

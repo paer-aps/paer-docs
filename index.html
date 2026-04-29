@@ -8,44 +8,43 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📄%3C/text%3E%3C/svg%3E">
 <style>
   body { margin: 0; }
-  .scalar-app { min-height: 100vh; }
 </style>
 </head>
 <body>
-<div id="app"></div>
-<script
-  id="api-reference"
-  type="application/json"
-  data-configuration='{
-    "theme": "default",
-    "layout": "modern",
-    "showSidebar": true,
-    "hideClientButton": false,
-    "hideDownloadButton": false,
-    "metaData": {
-      "title": "Paer API Reference",
-      "description": "API reference for paer.dk — quotes, identity, beneficiaries"
+<!-- Scalar configuration: JSON inside the <script> body, type="application/json".
+     This is the documented pattern at https://github.com/scalar/scalar
+     for multi-source / advanced configurations. -->
+<script id="api-reference" type="application/json">
+{
+  "theme": "default",
+  "layout": "modern",
+  "showSidebar": true,
+  "hideClientButton": false,
+  "hideDownloadButton": false,
+  "metaData": {
+    "title": "Paer API Reference",
+    "description": "API reference for paer.dk — quotes, identity, beneficiaries"
+  },
+  "sources": [
+    {
+      "url": "specs/quotes.json",
+      "title": "Quotes API",
+      "slug": "quotes",
+      "default": true
     },
-    "sources": [
-      {
-        "url": "specs/quotes.json",
-        "title": "Quotes API",
-        "slug": "quotes",
-        "default": true
-      },
-      {
-        "url": "specs/user.json",
-        "title": "User API",
-        "slug": "user"
-      },
-      {
-        "url": "specs/beneficiary.json",
-        "title": "Beneficiary API",
-        "slug": "beneficiary"
-      }
-    ]
-  }'
-></script>
+    {
+      "url": "specs/user.json",
+      "title": "User API",
+      "slug": "user"
+    },
+    {
+      "url": "specs/beneficiary.json",
+      "title": "Beneficiary API",
+      "slug": "beneficiary"
+    }
+  ]
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
 </html>

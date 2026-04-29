@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "Paer Quotations API",
-        "description": "FX and cross-border payment quotes for Paer.dk",
+        "description": "\n> ## \ud83d\udc4b Three APIs, one site\n>\n> This documentation site bundles **three Paer APIs** under a single nav.\n> Right now you're looking at the **Quotes API**. To see the others\n> (**User API**, **Beneficiary API**), look for the **dropdown at the\n> top of the left sidebar** \u2014 just above the search box. It currently\n> reads **\"Quotes API \u25be\"**. Click it to switch.\n\n**Paer** is a Danish B2B cross-border payments platform. We let you send\nmoney to a counterparty abroad at near-mid-market FX, settled either\ninstantly (stablecoin rail) or in a few hours (correspondent banking).\n\nThis is the **Quotes API** \u2014 the entry-point for every cross-border send.\nYou ask \"how much will it cost to send X EUR to Brazil right now?\", we\nreturn a price-locked quote good for 5\u201330 seconds, and you accept it to\ntrigger settlement. The other two services in the dropdown handle the\nplumbing: **User API** (signup / login / API keys / KYB) and\n**Beneficiary API** (counterparties + sanctions / PEP / adverse-media).\nAll three speak the same auth model \u2014 one `X-API-Key` works everywhere.\n\n## What you can build\n\n- **Pay a foreign supplier**: get a DKK\u2192USD or DKK\u2192BRL quote, accept it,\n  Paer settles. One API call to price, one to commit.\n- **Embedded payments in your product**: lock a quote at checkout, accept\n  it when the customer clicks pay. The 5-second TTL protects both sides\n  against mid-flight FX moves.\n- **Treasury automation**: sweep DKK\u2192EUR for a Danish business at\n  zero spread (we market-make this leg via Nationalbanken).\n- **Vibe-coding an MVP**: hand your LLM the URL `https://docs.paer.dk`\n  and it has the full spec, request shapes, and example payloads. Auth\n  is one header (`X-API-Key`), JSON in / JSON out, no SDK required.\n\n## Getting started\n\n```\n1. Sign up at https://app.paer.dk     \u2190 creates your company shell + first user\n2. Verify your email + enrol MFA       \u2190 user-api guides you through this\n3. Mint an API key in the dashboard    \u2190 starts with \"paer_sk_...\"\n4. Call /v1/quotes (this service) with that key\n```\n\n### Your first quote\n\n```bash\ncurl -X POST https://api.paer.dk/v1/quotes \\\n  -H \"Content-Type: application/json\" \\\n  -H \"X-API-Key: paer_sk_...\" \\\n  -d '{\n    \"sell_currency\": \"DKK\",\n    \"buy_currency\": \"EUR\",\n    \"buy_country\":   \"DE\",\n    \"sell_amount\":   \"10000.00\"\n  }'\n```\n\nYou get back `mid_market_rate`, `rate` (what you actually get), `spread_bps`\n(how far that is from mid), `flat_fee_amount`, and a `quote_id`. Accept\nit within the TTL by `POST /v1/quotes/{id}/accept`.\n\n## Auth in one paragraph\n\nEvery authenticated endpoint takes `X-API-Key: paer_sk_...`. Keys are\nminted by the **User API** (see the sidebar) and tied to a user inside a\ncompany. The user has a role: **A** (full write), **B** (write requires a\nsecond A/B signature), or **C** (read-only). For solo-founder pilots, you\nget an A-key and never think about it again.\n\n## Conventions\n\n- All money amounts are decimal strings \u2014 never floats. `\"10000.00\"`, not `10000`.\n- All currencies are ISO 4217 (`DKK`, `EUR`, `USD`). All countries ISO 3166 alpha-2 (`DK`, `DE`, `BR`).\n- All datetimes UTC ISO 8601 with `+00:00`.\n- `X-Request-ID` is echoed if you supply one; minted otherwise. Use it to\n  correlate logs across services.\n",
         "version": "0.1.0"
     },
     "paths": {
@@ -1120,7 +1120,7 @@
                         ],
                         "title": "Created By Ip"
                     },
-                    "api_key_id": {
+                    "user_id": {
                         "anyOf": [
                             {
                                 "type": "string"
@@ -1129,7 +1129,29 @@
                                 "type": "null"
                             }
                         ],
-                        "title": "Api Key Id"
+                        "title": "User Id"
+                    },
+                    "company_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Company Id"
+                    },
+                    "role_at_create": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role At Create"
                     },
                     "accepted_by_user_id": {
                         "anyOf": [
@@ -1187,7 +1209,9 @@
                     "bfi_id",
                     "raw_provider_response",
                     "created_by_ip",
-                    "api_key_id",
+                    "user_id",
+                    "company_id",
+                    "role_at_create",
                     "accepted_by_user_id",
                     "audit_events",
                     "monthly_volume_record"
@@ -1286,17 +1310,6 @@
                         ],
                         "title": "Bfi Id"
                     },
-                    "api_key_id": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Api Key Id"
-                    },
                     "accepted_by_user_id": {
                         "anyOf": [
                             {
@@ -1342,7 +1355,6 @@
                     "payout_method",
                     "provider",
                     "bfi_id",
-                    "api_key_id",
                     "accepted_by_user_id",
                     "accepted_at",
                     "expires_at"

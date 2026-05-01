@@ -978,6 +978,121 @@
                 }
             }
         },
+        "/v1/companies/me": {
+            "get": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Get Own Company",
+                "operationId": "get_own_company_v1_companies_me_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Update Own Company",
+                "operationId": "update_own_company_v1_companies_me_patch",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CompanyUpdate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/companies/me/kyb-submit": {
+            "post": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Submit Own Kyb",
+                "description": "Customer signals 'KYB profile filled in, please review'. Flips\nkyb_status to in_review. Operators close the loop via the existing\n/v1/admin/companies/{id}/kyb decision flow.",
+                "operationId": "submit_own_kyb_v1_companies_me_kyb_submit_post",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
         "/v1/keys/introspect": {
             "post": {
                 "tags": [
@@ -1192,6 +1307,605 @@
                 ],
                 "title": "ApiKeyInfo",
                 "description": "Public representation \u2014 never includes the plaintext."
+            },
+            "CompanyResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "business_email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Business Email"
+                    },
+                    "address_line1": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "settlement_currency": {
+                        "type": "string",
+                        "title": "Settlement Currency"
+                    },
+                    "monthly_volume": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Monthly Volume"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "kyb_status": {
+                        "type": "string",
+                        "title": "Kyb Status"
+                    },
+                    "kyb_method": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Method"
+                    },
+                    "kyb_provider": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Provider"
+                    },
+                    "kyb_verified_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Verified At"
+                    },
+                    "kyb_expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Expires At"
+                    },
+                    "kyb_risk_tier": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Risk Tier"
+                    },
+                    "kyb_rejection_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Kyb Rejection Reason"
+                    },
+                    "ubos": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Ubos"
+                    },
+                    "signatories": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Signatories"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "trade_name",
+                    "entity_type",
+                    "industry_type",
+                    "national_id_number",
+                    "country_of_formation",
+                    "date_of_formation",
+                    "website",
+                    "phone",
+                    "business_email",
+                    "address_line1",
+                    "address_line2",
+                    "city",
+                    "district",
+                    "postal_code",
+                    "country",
+                    "settlement_currency",
+                    "monthly_volume",
+                    "source_of_funds",
+                    "kyb_status",
+                    "kyb_method",
+                    "kyb_provider",
+                    "kyb_verified_at",
+                    "kyb_expires_at",
+                    "kyb_risk_tier",
+                    "kyb_rejection_reason",
+                    "ubos",
+                    "signatories",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "CompanyResponse"
+            },
+            "CompanyUpdate": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256,
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "industry_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Type"
+                    },
+                    "national_id_number": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "National Id Number"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "business_email": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Business Email"
+                    },
+                    "address_line1": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "district": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "District"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "settlement_currency": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 3,
+                                "minLength": 3
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Settlement Currency"
+                    },
+                    "monthly_volume": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Monthly Volume"
+                    },
+                    "source_of_funds": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Of Funds"
+                    },
+                    "ubos": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/UBO"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ubos"
+                    },
+                    "signatories": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/Signatory"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Signatories"
+                    }
+                },
+                "type": "object",
+                "title": "CompanyUpdate",
+                "description": "Body for `PATCH /v1/companies/{id}`. All fields optional."
             },
             "FactorResponse": {
                 "properties": {
@@ -1786,6 +2500,63 @@
                 "title": "SessionValidateResponse",
                 "description": "200 in both valid + invalid cases (so callers can cache negatives briefly\nwithout conflating with service-down). 401 reserved for HMAC failures."
             },
+            "Signatory": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 128
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "signing_authority": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Signing Authority",
+                        "description": "Solo, Joint-2, Joint-all, etc. Free text for now."
+                    },
+                    "id_verified": {
+                        "type": "boolean",
+                        "title": "Id Verified",
+                        "default": false
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name"
+                ],
+                "title": "Signatory",
+                "description": "Authorised signatory \u2014 power-of-attorney holder per the company's articles."
+            },
             "SignupRequest": {
                 "properties": {
                     "email": {
@@ -1948,6 +2719,93 @@
                     "qr_svg_data_url"
                 ],
                 "title": "TotpInitResponse"
+            },
+            "UBO": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Name"
+                    },
+                    "ownership_pct": {
+                        "type": "number",
+                        "maximum": 100.0,
+                        "minimum": 0.0,
+                        "title": "Ownership Pct"
+                    },
+                    "dob": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Dob",
+                        "description": "ISO 8601 date"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "id_doc_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Id Doc Type"
+                    },
+                    "id_doc_number": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Id Doc Number"
+                    },
+                    "screening_status": {
+                        "type": "string",
+                        "title": "Screening Status",
+                        "default": "not_started"
+                    },
+                    "screened_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Screened At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "ownership_pct"
+                ],
+                "title": "UBO",
+                "description": "Ultimate beneficial owner.\n\nRequired by AML Regulation 2024/1624 and PSD3. Threshold for inclusion is\n25% ownership or effective control (paer-brain V6). Screening status is\npopulated post-IDV by the configured KYB provider."
             },
             "UserCreate": {
                 "properties": {

@@ -1066,7 +1066,7 @@
                     "companies"
                 ],
                 "summary": "Submit Own Kyb",
-                "description": "Customer signals 'KYB profile filled in, please review'. Flips\nkyb_status to in_review. Operators close the loop via the existing\n/v1/admin/companies/{id}/kyb decision flow.",
+                "description": "Customer signals 'KYB profile filled in, please review'. Flips\nkyb_status to in_review AND drops a `customer_submitted` row into the\nKybDecision queue so operators see it on the dashboard. Operators\nclose the loop with a fresh verified/rejected decision via\n/v1/admin/companies/{id}/kyb-decisions; that auto-withdraws the\ncustomer-submitted row.",
                 "operationId": "submit_own_kyb_v1_companies_me_kyb_submit_post",
                 "responses": {
                     "200": {
@@ -1091,6 +1091,356 @@
                         "ServiceAuth": []
                     }
                 ]
+            }
+        },
+        "/v1/companies/me/kyb-documents/presign-upload": {
+            "post": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Presign Kyb Document Upload",
+                "operationId": "presign_kyb_document_upload_v1_companies_me_kyb_documents_presign_upload_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KybDocumentPresignRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDocumentPresignResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/companies/me/kyb-documents": {
+            "get": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "List Own Kyb Documents",
+                "operationId": "list_own_kyb_documents_v1_companies_me_kyb_documents_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/KybDocumentResponse"
+                                    },
+                                    "type": "array",
+                                    "title": "Response List Own Kyb Documents V1 Companies Me Kyb Documents Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Record Kyb Document",
+                "operationId": "record_kyb_document_v1_companies_me_kyb_documents_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KybDocumentRecord"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDocumentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
+        "/v1/companies/me/kyb-documents/{document_id}/download-url": {
+            "get": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Get Own Kyb Document Download Url",
+                "operationId": "get_own_kyb_document_download_url_v1_companies_me_kyb_documents__document_id__download_url_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "document_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Document Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true,
+                                    "title": "Response Get Own Kyb Document Download Url V1 Companies Me Kyb Documents  Document Id  Download Url Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/companies/me/kyb-documents/{document_id}": {
+            "delete": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Archive Own Kyb Document",
+                "operationId": "archive_own_kyb_document_v1_companies_me_kyb_documents__document_id__delete",
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "document_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Document Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KybDocumentResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/companies/me/kyb-documents/local-upload": {
+            "put": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Local Upload Kyb Document",
+                "description": "Local-env-only upload sink. Customer's PUT request body is the file bytes.\nThe presign endpoint hands out URLs pointing here; in non-local env the URL\npoints at S3 and this route is unreachable.",
+                "operationId": "local_upload_kyb_document_v1_companies_me_kyb_documents_local_upload_put",
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "storage_key",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Storage Key"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/companies/me/kyb-documents/local-download": {
+            "get": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Local Download Kyb Document",
+                "description": "Local-env-only download sink. The presigned-GET URL handed out by\nstorage.presign_download in local mode points here.",
+                "operationId": "local_download_kyb_document_v1_companies_me_kyb_documents_local_download_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "storage_key",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Storage Key"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/v1/keys/introspect": {
@@ -1598,6 +1948,131 @@
                         "type": "array",
                         "title": "Signatories"
                     },
+                    "is_regulated_fi": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Is Regulated Fi"
+                    },
+                    "regulated_fi_details": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Regulated Fi Details"
+                    },
+                    "purpose_of_transfers": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Purpose Of Transfers"
+                    },
+                    "expected_corridors": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expected Corridors"
+                    },
+                    "pep_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Exposure"
+                    },
+                    "pep_details": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Details"
+                    },
+                    "sanctions_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Exposure"
+                    },
+                    "sanctions_details": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Details"
+                    },
+                    "adverse_media_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Exposure"
+                    },
+                    "adverse_media_details": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Details"
+                    },
+                    "aml_declarations_attested_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Aml Declarations Attested At"
+                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time",
@@ -1640,6 +2115,17 @@
                     "kyb_rejection_reason",
                     "ubos",
                     "signatories",
+                    "is_regulated_fi",
+                    "regulated_fi_details",
+                    "purpose_of_transfers",
+                    "expected_corridors",
+                    "pep_exposure",
+                    "pep_details",
+                    "sanctions_exposure",
+                    "sanctions_details",
+                    "adverse_media_exposure",
+                    "adverse_media_details",
+                    "aml_declarations_attested_at",
                     "created_at",
                     "updated_at"
                 ],
@@ -1901,6 +2387,125 @@
                             }
                         ],
                         "title": "Signatories"
+                    },
+                    "is_regulated_fi": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Is Regulated Fi"
+                    },
+                    "regulated_fi_details": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Regulated Fi Details"
+                    },
+                    "purpose_of_transfers": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Purpose Of Transfers"
+                    },
+                    "expected_corridors": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expected Corridors",
+                        "description": "ISO-2 destination country codes the customer expects to send to."
+                    },
+                    "pep_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Exposure"
+                    },
+                    "pep_details": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pep Details"
+                    },
+                    "sanctions_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Exposure"
+                    },
+                    "sanctions_details": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Sanctions Details"
+                    },
+                    "adverse_media_exposure": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Exposure"
+                    },
+                    "adverse_media_details": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Adverse Media Details"
                     }
                 },
                 "type": "object",
@@ -2076,6 +2681,172 @@
                 ],
                 "title": "IntrospectResponse",
                 "description": "Metadata bundle returned to the calling service. Cached for 30s on their side."
+            },
+            "KybDocumentPresignRequest": {
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "pattern": "^(articles_of_association|certificate_of_incorporation|registry_extract|tax_registration|audited_financials|proof_of_address|ubo_id_document|signatory_id_document|power_of_attorney|other)$",
+                        "title": "Kind"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Filename"
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "title": "Content Type"
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0.0,
+                        "title": "Size Bytes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "kind",
+                    "filename",
+                    "content_type",
+                    "size_bytes"
+                ],
+                "title": "KybDocumentPresignRequest",
+                "description": "Body for `POST /v1/companies/me/kyb-documents/presign-upload`.\n\nCustomer declares what they're about to upload; we return a short-lived\nupload URL. The customer then PUTs the file to that URL and calls back\nvia `POST /v1/companies/me/kyb-documents` with the same `storage_key`.",
+                "examples": [
+                    {
+                        "content_type": "application/pdf",
+                        "filename": "acme_articles.pdf",
+                        "kind": "articles_of_association",
+                        "size_bytes": 184320
+                    }
+                ]
+            },
+            "KybDocumentPresignResponse": {
+                "properties": {
+                    "upload_url": {
+                        "type": "string",
+                        "title": "Upload Url"
+                    },
+                    "storage_key": {
+                        "type": "string",
+                        "title": "Storage Key"
+                    },
+                    "expires_in": {
+                        "type": "integer",
+                        "title": "Expires In"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "upload_url",
+                    "storage_key",
+                    "expires_in"
+                ],
+                "title": "KybDocumentPresignResponse",
+                "description": "The customer must PUT to `upload_url` with `Content-Type: <content_type>`\nwithin `expires_in` seconds, then call back with `storage_key` to record."
+            },
+            "KybDocumentRecord": {
+                "properties": {
+                    "storage_key": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "minLength": 1,
+                        "title": "Storage Key"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "pattern": "^(articles_of_association|certificate_of_incorporation|registry_extract|tax_registration|audited_financials|proof_of_address|ubo_id_document|signatory_id_document|power_of_attorney|other)$",
+                        "title": "Kind"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "title": "Filename"
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "title": "Content Type"
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0.0,
+                        "title": "Size Bytes"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "storage_key",
+                    "kind",
+                    "filename",
+                    "content_type",
+                    "size_bytes"
+                ],
+                "title": "KybDocumentRecord",
+                "description": "Body for `POST /v1/companies/me/kyb-documents` \u2014 record after upload."
+            },
+            "KybDocumentResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "title": "Kind"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "title": "Filename"
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "title": "Content Type"
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "title": "Size Bytes"
+                    },
+                    "uploaded_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Uploaded At"
+                    },
+                    "uploaded_by_user_id": {
+                        "type": "string",
+                        "title": "Uploaded By User Id"
+                    },
+                    "archived_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Archived At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "filename",
+                    "content_type",
+                    "size_bytes",
+                    "uploaded_at",
+                    "uploaded_by_user_id",
+                    "archived_at"
+                ],
+                "title": "KybDocumentResponse"
             },
             "LoginChallengeResponse": {
                 "properties": {

@@ -3366,6 +3366,14 @@
                             }
                         ],
                         "title": "Country Of Formation"
+                    },
+                    "national_id_number": {
+                        "type": "string",
+                        "maxLength": 8,
+                        "minLength": 8,
+                        "pattern": "^\\d{8}$",
+                        "title": "National Id Number",
+                        "description": "Danish CVR \u2014 8 digits. REQUIRED. Set by the autocomplete pick on /signup."
                     }
                 },
                 "type": "object",
@@ -3373,7 +3381,8 @@
                     "email",
                     "password",
                     "name",
-                    "company_name"
+                    "company_name",
+                    "national_id_number"
                 ],
                 "title": "SignupRequest",
                 "description": "Body for POST /v1/signup \u2014 atomic create-company + create-user + send-verification.",

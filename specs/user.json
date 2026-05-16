@@ -1060,6 +1060,59 @@
                 ]
             }
         },
+        "/v1/companies/me/snapshot-cvr": {
+            "patch": {
+                "tags": [
+                    "companies"
+                ],
+                "summary": "Snapshot Own Company From Cvr",
+                "description": "Re-snapshot CVR registry data onto the customer's Company row.\n\nTwo flows hit this:\n- Signup-without-CVR: customer skipped the autocomplete on /signup;\n  KYB Step 1 lets them pick a CVR + this endpoint pulls the snapshot.\n- Customer wants to refresh after a registry change (rare; admin\n  typically does this via the operator-side cache invalidation).\n\nThe snapshot service writes via Pydantic-validated UBO/Signatory\nshapes \u2014 same audit log as a regular customer edit applies.",
+                "operationId": "snapshot_own_company_from_cvr_v1_companies_me_snapshot_cvr_patch",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/_SnapshotCvrRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanyResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "ApiKey": []
+                    },
+                    {
+                        "SessionToken": []
+                    },
+                    {
+                        "ServiceAuth": []
+                    }
+                ]
+            }
+        },
         "/v1/companies/me/kyb-submit": {
             "post": {
                 "tags": [
@@ -1947,6 +2000,25 @@
                         },
                         "type": "array",
                         "title": "Signatories"
+                    },
+                    "legal_owners": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Legal Owners"
+                    },
+                    "power_to_bind": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Power To Bind"
                     },
                     "is_regulated_fi": {
                         "anyOf": [
@@ -3313,7 +3385,19 @@
                             }
                         ],
                         "title": "Signing Authority",
-                        "description": "Solo, Joint-2, Joint-all, etc. Free text for now."
+                        "description": "Derived from CVR power_to_bind + role_category at signup. Free text post-customer-edit."
+                    },
+                    "role_category": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 32
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role Category"
                     },
                     "dob": {
                         "anyOf": [
@@ -3870,6 +3954,21 @@
                     "token"
                 ],
                 "title": "VerifyEmailRequest"
+            },
+            "_SnapshotCvrRequest": {
+                "properties": {
+                    "national_id_number": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 8,
+                        "title": "National Id Number"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "national_id_number"
+                ],
+                "title": "_SnapshotCvrRequest"
             }
         },
         "securitySchemes": {

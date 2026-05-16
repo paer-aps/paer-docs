@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull the three OpenAPI specs from the live deployments into specs/.
+# Pull the four OpenAPI specs from the live deployments into specs/.
 #
 # Run locally before committing if you want to refresh the docs site
 # manually. CI runs this on a daily cron and on workflow_dispatch.
@@ -17,6 +17,7 @@ declare -A URLS=(
   [quotes]=https://api.paer.dk/openapi.json
   [user]=https://user-api.paer.dk/openapi.json
   [beneficiary]=https://beneficiary-api.paer.dk/openapi.json
+  [cvr]=https://cvr-api.paer.dk/openapi.json
 )
 
 for svc in "${!URLS[@]}"; do

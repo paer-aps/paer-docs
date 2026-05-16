@@ -2891,8 +2891,20 @@
                         "title": "Uploaded At"
                     },
                     "uploaded_by_user_id": {
-                        "type": "string",
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
                         "title": "Uploaded By User Id"
+                    },
+                    "source": {
+                        "type": "string",
+                        "title": "Source",
+                        "default": "customer_uploaded"
                     },
                     "archived_at": {
                         "anyOf": [

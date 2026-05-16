@@ -3315,6 +3315,33 @@
                         "title": "Signing Authority",
                         "description": "Solo, Joint-2, Joint-all, etc. Free text for now."
                     },
+                    "dob": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Dob",
+                        "description": "ISO 8601 date"
+                    },
+                    "nationality": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nationality",
+                        "description": "ISO-2 country code \u2014 pre-filled from CVR when available."
+                    },
                     "id_verified": {
                         "type": "boolean",
                         "title": "Id Verified",
@@ -3539,6 +3566,21 @@
                             }
                         ],
                         "title": "Country"
+                    },
+                    "nationality": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2,
+                                "minLength": 2,
+                                "pattern": "^[A-Z]{2}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nationality",
+                        "description": "ISO-2 country code \u2014 pre-filled from CVR statsborgerskab when available."
                     },
                     "id_doc_type": {
                         "anyOf": [

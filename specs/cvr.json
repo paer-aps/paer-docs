@@ -1,0 +1,1615 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Paer CVR API",
+        "description": "\nShared Danish CVR (Det Centrale Virksomhedsregister) data service. Wraps\nErhvervsstyrelsen's public registry for three downstream consumers:\n\n1. **Signup autocomplete** \u2014 type-ahead search on company name or 8-digit\n   CVR number for the `/signup` form on app.paer.dk.\n2. **KYB deep gather** \u2014 full company details, beneficial owners, related\n   entities, and parsed annual reports for the operator-side KYB review\n   in paer-user-api.\n3. **Sales prospecting** \u2014 n8n workflows pull structured data + persisted\n   annual reports for fit scoring + outreach drafting (interpretation\n   layer lives in n8n + Claude, not in this service).\n\nThis service is **pure data plumbing**. No AI, no narrative summaries,\nno fit scoring. Returns raw structured results from Erhvervsstyrelsen\nplus parsed XBRL fields, with Postgres caching + S3 persistence of\nannual reports for audit + reliability.\n\n## Auth\n\n`X-API-Key: paer_sk_...` for everything except the search endpoint\n(public, rate-limited per IP, since signup autocomplete is anonymous).\nKeys come from paer-user-api; this service introspects via HMAC.\n",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "description": "Liveness + DB connectivity probe.\n\nApp Runner uses this for the health check; failing it pulls the instance\nout of the load balancer.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Health Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "summary": "Ready",
+                "description": "Readiness probe \u2014 distinct from liveness; both currently report the same.",
+                "operationId": "ready_ready_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Ready Ready Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/search": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "Search",
+                "operationId": "search_v1_cvr_search_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 128,
+                            "description": "Name or 8-digit CVR",
+                            "title": "Q"
+                        },
+                        "description": "Name or 8-digit CVR"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 25,
+                            "minimum": 1,
+                            "default": 5,
+                            "title": "Limit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrSearchHit"
+                                    },
+                                    "title": "Response Search V1 Cvr Search Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "Get Company",
+                "operationId": "get_company_v1_cvr_companies__cvr__get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CvrCompany"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/ubos": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Ubos",
+                "operationId": "list_ubos_v1_cvr_companies__cvr__ubos_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrUbo"
+                                    },
+                                    "title": "Response List Ubos V1 Cvr Companies  Cvr  Ubos Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/legal-owners": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Legal Owners",
+                "description": "Registered direct shareholders from EJERREGISTER (5%+ stake threshold).\nDistinct from /ubos \u2014 legal owners can be holding companies; UBOs cannot.\nUsed by paer-user-api admin overlay as a cross-check against customer-\ndeclared UBOs (a corporate shareholder typically signals an indirect\nownership chain the operator should walk to identify the real UBO).",
+                "operationId": "list_legal_owners_v1_cvr_companies__cvr__legal_owners_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrLegalOwner"
+                                    },
+                                    "title": "Response List Legal Owners V1 Cvr Companies  Cvr  Legal Owners Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/signatories": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Signatories",
+                "description": "Directors + board members from the registry. Distinct from /ubos\n(which surfaces beneficial owners). Used by KYB Step 2 to pre-fill\nthe signatory list customer-side.",
+                "operationId": "list_signatories_v1_cvr_companies__cvr__signatories_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrSignatory"
+                                    },
+                                    "title": "Response List Signatories V1 Cvr Companies  Cvr  Signatories Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/related": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Related",
+                "operationId": "list_related_v1_cvr_companies__cvr__related_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrRelatedCompany"
+                                    },
+                                    "title": "Response List Related V1 Cvr Companies  Cvr  Related Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/production-units": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Production Units",
+                "operationId": "list_production_units_v1_cvr_companies__cvr__production_units_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrProductionUnit"
+                                    },
+                                    "title": "Response List Production Units V1 Cvr Companies  Cvr  Production Units Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/reports": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "List Reports",
+                "description": "Returns metadata + parsed XBRL summaries for the most recent N reports.\nEach entry has a presigned `download_url` (5-min TTL) \u2014 fetching the URL\nis what triggers the lazy fetch-and-store from regnskabsregister into S3.",
+                "operationId": "list_reports_v1_cvr_companies__cvr__reports_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    },
+                    {
+                        "name": "years",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 10,
+                            "minimum": 1,
+                            "default": 3,
+                            "title": "Years"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CvrAnnualReportSummary"
+                                    },
+                                    "title": "Response List Reports V1 Cvr Companies  Cvr  Reports Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/reports/{year}/download-url": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "Report Download Url",
+                "description": "Returns a presigned S3 GET URL for the annual report file.\n\nFirst call: fetches from regnskabsregister + stores in S3 + parses XBRL.\nSubsequent calls within the file's lifetime: cache hit, just presign + return.",
+                "operationId": "report_download_url_v1_cvr_companies__cvr__reports__year__download_url_get",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    },
+                    {
+                        "name": "year",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 2100,
+                            "minimum": 1980,
+                            "title": "Year"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CvrReportDownloadUrlResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/companies/{cvr}/invalidate": {
+            "post": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "Invalidate",
+                "description": "Wipe all cached entries for a CVR. Forces the next read to hit Erhvervsstyrelsen.\nOperator-only (Paer-Internal A/B). Used by the 'Refresh CVR data' button.",
+                "operationId": "invalidate_v1_cvr_companies__cvr__invalidate_post",
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cvr",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 8,
+                            "pattern": "^\\d{8}$",
+                            "description": "8-digit CVR",
+                            "title": "Cvr"
+                        },
+                        "description": "8-digit CVR"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/cvr/local-download": {
+            "get": {
+                "tags": [
+                    "cvr"
+                ],
+                "summary": "Local Download",
+                "description": "Local-env-only download sink. The presigned-GET URL handed out by\n`report_storage.presign_download` in local mode points here. In prod the\nURL is a direct S3 presigned URL and this route is unreachable\n(well, reachable but useless \u2014 files don't live on disk in prod).",
+                "operationId": "local_download_v1_cvr_local_download_get",
+                "parameters": [
+                    {
+                        "name": "storage_key",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Storage Key"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "summary": "Root",
+                "operationId": "root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Root  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "CvrAnnualReportSummary": {
+                "properties": {
+                    "year": {
+                        "type": "integer",
+                        "title": "Year"
+                    },
+                    "report_class": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Report Class"
+                    },
+                    "format": {
+                        "type": "string",
+                        "title": "Format"
+                    },
+                    "parsed_xbrl_summary": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Parsed Xbrl Summary"
+                    },
+                    "parse_error": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Parse Error"
+                    },
+                    "download_url": {
+                        "type": "string",
+                        "title": "Download Url"
+                    },
+                    "fetched_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Fetched At"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "year",
+                    "report_class",
+                    "format",
+                    "parsed_xbrl_summary",
+                    "parse_error",
+                    "download_url",
+                    "fetched_at"
+                ],
+                "title": "CvrAnnualReportSummary",
+                "description": "Shape returned by /reports \u2014 no file bytes, just metadata + parsed XBRL."
+            },
+            "CvrCompany": {
+                "properties": {
+                    "cvr": {
+                        "type": "string",
+                        "title": "Cvr"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "trade_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Trade Name"
+                    },
+                    "status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Status"
+                    },
+                    "legal_form": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Legal Form"
+                    },
+                    "legal_form_short": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Legal Form Short"
+                    },
+                    "industry_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Code"
+                    },
+                    "industry_text": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Text"
+                    },
+                    "country_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country Of Formation"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "date_of_formation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date Of Formation"
+                    },
+                    "address_line1": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line1"
+                    },
+                    "address_line2": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line2"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "business_email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Business Email"
+                    },
+                    "website": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Website"
+                    },
+                    "employees_recent": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Employees Recent"
+                    },
+                    "registered_capital_dkk": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Registered Capital Dkk"
+                    },
+                    "power_to_bind": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Power To Bind"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "cvr",
+                    "name",
+                    "trade_name",
+                    "status",
+                    "legal_form",
+                    "legal_form_short",
+                    "industry_code",
+                    "industry_text",
+                    "country_of_formation",
+                    "country",
+                    "date_of_formation",
+                    "address_line1",
+                    "address_line2",
+                    "city",
+                    "postal_code",
+                    "phone",
+                    "business_email",
+                    "website",
+                    "employees_recent",
+                    "registered_capital_dkk"
+                ],
+                "title": "CvrCompany",
+                "description": "Full company detail \u2014 what KYB Step 1 autofill consumes.",
+                "examples": [
+                    {
+                        "country_of_formation": "DK",
+                        "cvr": "46413563",
+                        "industry_text": "Anden finansiel formidling undtagen forsikring og pensionsforsikring",
+                        "legal_form": "Anpartsselskab",
+                        "name": "Paer ApS",
+                        "status": "NORMAL"
+                    }
+                ]
+            },
+            "CvrLegalOwner": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "entity_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Entity Type"
+                    },
+                    "cvr": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cvr"
+                    },
+                    "ownership_pct": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ownership Pct"
+                    },
+                    "voting_pct": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Voting Pct"
+                    },
+                    "share_class": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Share Class"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "entity_type",
+                    "cvr",
+                    "ownership_pct",
+                    "voting_pct",
+                    "share_class",
+                    "country"
+                ],
+                "title": "CvrLegalOwner",
+                "description": "Registered direct shareholder from EJERREGISTER (per Danish corporate\ntransparency law, threshold is 5% of share capital or voting rights).\n\nDistinct from a UBO: legal owners can be holding companies (entity_type\n\"company\") whereas UBOs must be natural persons. Operators view the\nlegal-owner list as a cross-check against the customer-declared UBOs \u2014\na corporate shareholder typically signals an indirect ownership chain\nthat the operator should walk to identify the natural-person UBO."
+            },
+            "CvrProductionUnit": {
+                "properties": {
+                    "p_number": {
+                        "type": "string",
+                        "title": "P Number"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "address_line": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "postal_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Postal Code"
+                    },
+                    "industry_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Code"
+                    },
+                    "industry_text": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Industry Text"
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "title": "Active"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "p_number",
+                    "name",
+                    "address_line",
+                    "city",
+                    "postal_code",
+                    "industry_code",
+                    "industry_text",
+                    "active"
+                ],
+                "title": "CvrProductionUnit"
+            },
+            "CvrRelatedCompany": {
+                "properties": {
+                    "cvr": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cvr"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "relationship_type": {
+                        "type": "string",
+                        "title": "Relationship Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "cvr",
+                    "name",
+                    "country",
+                    "relationship_type"
+                ],
+                "title": "CvrRelatedCompany"
+            },
+            "CvrReportDownloadUrlResponse": {
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "title": "Url"
+                    },
+                    "expires_in": {
+                        "type": "integer",
+                        "title": "Expires In"
+                    },
+                    "cache_hit": {
+                        "type": "boolean",
+                        "title": "Cache Hit"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "url",
+                    "expires_in",
+                    "cache_hit"
+                ],
+                "title": "CvrReportDownloadUrlResponse"
+            },
+            "CvrSearchHit": {
+                "properties": {
+                    "cvr": {
+                        "type": "string",
+                        "maxLength": 8,
+                        "minLength": 8,
+                        "title": "Cvr"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "status": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Status"
+                    },
+                    "legal_form": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Legal Form"
+                    },
+                    "city": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "City"
+                    },
+                    "address_line": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address Line"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "cvr",
+                    "name",
+                    "status",
+                    "legal_form",
+                    "city",
+                    "address_line"
+                ],
+                "title": "CvrSearchHit",
+                "description": "Slim shape for autocomplete results.",
+                "examples": [
+                    {
+                        "address_line": "Example Street 1",
+                        "city": "Copenhagen",
+                        "cvr": "46413563",
+                        "legal_form": "Anpartsselskab",
+                        "name": "Paer ApS",
+                        "status": "NORMAL"
+                    }
+                ]
+            },
+            "CvrSignatory": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "role_category": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role Category"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "dob": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Dob"
+                    },
+                    "nationality": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nationality"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "role",
+                    "country"
+                ],
+                "title": "CvrSignatory",
+                "description": "Director / board member from the registry, sourced from the company's\n`Vrvirksomhed.deltagerRelation` entries with LEDELSESORGAN role. Only\nnatural persons (legal-entity signatories are rare and handled separately)."
+            },
+            "CvrUbo": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "ownership_pct": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Ownership Pct"
+                    },
+                    "country": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Country"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Role"
+                    },
+                    "dob": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Dob"
+                    },
+                    "nationality": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Nationality"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "ownership_pct",
+                    "country",
+                    "role"
+                ],
+                "title": "CvrUbo",
+                "description": "Deprecated. Reelle Ejere (UBOs) are not in the free CVR distribution\ntier paer-cvr-api currently has access to \u2014 they require an obligated-\nentity tier (pursued out-of-band 2026-05-15). The `/ubos` endpoint\nreturns `[]` until access lands; KYB Step 2 customer types UBOs."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        },
+        "securitySchemes": {
+            "ApiKey": {
+                "type": "apiKey",
+                "description": "Customer API key (`paer_sk_...`). Minted by paer-user-api; this service introspects via /v1/keys/introspect for resolution.",
+                "in": "header",
+                "name": "X-API-Key"
+            }
+        }
+    }
+}

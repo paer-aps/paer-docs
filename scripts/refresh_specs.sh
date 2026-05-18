@@ -8,6 +8,14 @@
 # - No CORS coupling between the docs site and the three API services.
 # - Page loads instantly (no client-side fetch waterfall).
 # - Reproducible: a doc URL renders the same spec every time until refreshed.
+#
+# Post-processing (Item 16 Phase 2):
+# Each fetched spec is run through `scripts/normalize_spec.py` which:
+#   - Strips any `/v1/internal/*` or `/v1/admin/*` paths that slipped through
+#     (defense-in-depth; FastAPI already hides them via include_in_schema=False).
+#   - Rewrites customer-facing `/v1/<top>/...` paths to `/v1/public/<top>/...`
+#     so the published docs advertise the canonical Item-16 path. Each service
+#     has an ASGI middleware that accepts both prefixes during the cutover.
 
 set -euo pipefail
 
@@ -24,11 +32,17 @@ for svc in "${!URLS[@]}"; do
   url="${URLS[$svc]}"
   out="specs/${svc}.json"
   echo "fetching ${svc} ← ${url}"
-  if ! curl -fsS --max-time 15 "$url" | python3 -m json.tool > "${out}.tmp"; then
-    echo "  ✗ failed; keeping existing ${out}"
-    rm -f "${out}.tmp"
+  if ! curl -fsS --max-time 15 "$url" -o "${out}.raw"; then
+    echo "  ✗ fetch failed; keeping existing ${out}"
+    rm -f "${out}.raw"
     continue
   fi
+  if ! python3 scripts/normalize_spec.py "${out}.raw" "${out}.tmp" "$svc"; then
+    echo "  ✗ normalize failed; keeping existing ${out}"
+    rm -f "${out}.raw" "${out}.tmp"
+    continue
+  fi
+  rm -f "${out}.raw"
   mv "${out}.tmp" "$out"
   echo "  ✓ $(wc -c < "$out") bytes"
 done

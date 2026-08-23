@@ -43,7 +43,8 @@ Last updated **2026-04-28**.
 |---|---|
 | ✅ | index.html with Scalar multi-source embed |
 | ✅ | specs/{quotes,user,beneficiary}.json baked from live |
-| ✅ | scripts/refresh_specs.sh — graceful fallback on transient fetch failure |
+| ✅ | scripts/refresh_specs.sh — keeps the previous spec on a failed fetch, but **exits non-zero** so the run goes red (silent fallback froze the site for a month — meta #108) |
+| ⛔ | **The published specs are stale and cannot currently be refreshed.** `ENABLE_DOCS=false` on the production ECS task definitions, so every service's `/openapi.json` 404s — the case this file's "When to update" section predicted. Needs a source decision: expose the spec endpoint again, or generate each spec in the service's own CI (`app.openapi()` at build time) and publish it as an artifact. Tracked on meta #108. |
 | ✅ | .github/workflows/deploy.yml — GH Pages on push to main |
 | ✅ | .github/workflows/refresh.yml — daily cron + workflow_dispatch with auto-commit |
 | ✅ | CNAME = docs.paer.dk |

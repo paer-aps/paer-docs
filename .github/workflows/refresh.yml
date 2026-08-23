@@ -27,7 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # continue-on-error, then a hard fail at the end: a service whose spec
+      # could not be refreshed must not stop the services that COULD be
+      # published, but the run still has to go red. Silence is what let the
+      # published specs sit frozen from 2026-07-18 to 2026-08-19 while every
+      # run reported success (#108).
       - name: Refresh specs
+        id: refresh
+        continue-on-error: true
         run: ./scripts/refresh_specs.sh
 
       - name: Commit if changed
@@ -53,3 +60,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run deploy.yml
+
+      # Last, so a partial refresh still publishes what it could. A red
+      # scheduled run is what actually reaches a human: GitHub emails the
+      # repo owner on scheduled-workflow failure, and a run that keeps
+      # failing is visible in a way a run that quietly does nothing is not.
+      - name: Fail the run if any spec could not be refreshed
+        if: steps.refresh.outcome == 'failure'
+        run: |
+          echo "::error title=Spec refresh incomplete::One or more services did not serve /openapi.json — docs.paer.dk is serving stale specs. See the 'Refresh specs' step for which, and meta #108 for the ENABLE_DOCS root cause."
+          exit 1
